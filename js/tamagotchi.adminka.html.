@@ -1,0 +1,266 @@
+div class=tama-titleКабинет управления Тамагочи-Зомбиdiv
+
+style
+    #admin-wrap { background #f4f4f4; padding 20px; font-family sans-serif; color #333; max-width 900px; margin auto; }
+    .admin-panel { background #fff; border 1px solid #ccc; padding 15px; margin-bottom 20px; border-radius 5px; box-shadow 0 2px 5px rgba(0,0,0,0.1); }
+    .admin-panel h2 { margin-top 0; font-size 18px; border-bottom 2px solid #007bff; padding-bottom 5px; color #007bff; }
+    
+    .grid-2 { display grid; grid-template-columns 1fr 1fr; gap 15px; }
+    input, select, textarea { width 100%; padding 8px; margin 5px 0 10px 0; border 1px solid #ccc; border-radius 4px; box-sizing border-box; }
+    
+    button { cursor pointer; padding 10px; border none; border-radius 4px; font-weight bold; transition 0.2s; }
+    button.primary { background #28a745; color #fff; }
+    button.warning { background #ffc107; color #000; }
+    button.danger { background #dc3545; color #fff; }
+    button.info { background #17a2b8; color #fff; }
+    buttonhover { opacity 0.8; }
+
+    .refresh-btn { background #007bff; color white; padding 8px 15px; display inline-block; cursor pointer; margin-bottom 10px; border-radius 4px; font-weight bold; }
+    
+    #bonusList { max-height 250px; overflow-y auto; border 1px solid #eee; padding 5px; }
+    #adminLogs { height 120px; overflow-y auto; background #333; color #0f0; padding 10px; font-size 11px; font-family monospace; border-radius 4px; }
+    
+    .stat-edit-row { display flex; align-items center; gap 10px; margin-bottom 5px; }
+    .stat-edit-row label { width 100px; font-size 12px; font-weight bold; }
+style
+
+div id=admin-wrap
+    div style=display flex; justify-content space-between; align-items center;
+        div class=refresh-btn onclick=init()🔄 Обновить данные с сервераdiv
+        div id=syncStatus style=font-size 12px; color #666;div
+    div
+    
+    div class=grid-2
+div class=admin-panel
+    h2🧪 Характеристики Зомбиh2
+    div id=statsControls
+        div class=stat-edit-rowlabelHPlabelinput type=number id=edit_hp max=100div
+        div class=stat-edit-rowlabelСытостьlabelinput type=number id=edit_hunger max=100div
+        div class=stat-edit-rowlabelНастроениеlabelinput type=number id=edit_mood max=100div
+        div class=stat-edit-rowlabelАктивностьlabelinput type=number id=edit_activity max=100div div class=stat-edit-rowlabelИнфекцияlabelinput type=number id=edit_infection max=100div
+        button class=primary style=width100% onclick=updateZombieStats()💾 Сохранить параметрыbutton
+    div
+    hr
+    button class=danger style=width100%; margin-top 10px; onclick=resurrectZombie()⚡ ВОСКРЕСИТЬ (Full Reset)button
+div
+
+        div class=admin-panel
+            h2👤 Управление игрокомh2
+            labelНикнеймlabel
+            input type=text id=username placeholder=Точный ник игрока
+            
+            div class=grid-2 style=margin-bottom 10px;
+                button class=primary onclick=modifyBonuses('add')🎁 + Бонусbutton
+                button class=warning onclick=modifyBonuses('remove')➖ - Бонусbutton
+            div
+            input type=number id=bonusAmount value=5 placeholder=Кол-во
+            button class=info style=width 100% onclick=resetUserActions()🔄 Сбросить лимит (99)button
+            button class=danger style=width 100%; margin-top5px; font-size 10px; onclick=resetUserRating()🗑 Обнулить ТОП игрокаbutton
+        div
+    div
+
+    div class=admin-panel
+        div style=displayflex; justify-content space-between;
+            h2📊 Список бонусов и поискh2
+            input type=text id=userSearch placeholder=Поиск игрока... onkeyup=filterUsers() style=width 200px; margin 0;
+        div
+        div id=bonusListЗагрузка данных...div
+    div
+
+    div class=admin-panel
+        h2📝 Лог действий админаh2
+        div id=adminLogsdiv
+    div
+div
+
+script
+const APP = 16777213;
+const KEY = GLOBAL_ZOMBIE_TAMA;
+const ADMIN_NAME = window.UserLogin  Администратор;
+let state = null;
+
+async function loadState() {
+    try {
+        const resp = await fetch(`api.phptoken=${window.ForumAPITicket  ''}&method=storage.get&app_id=${APP}&key=${KEY}`);
+        const json = await resp.json();
+        const raw = json.response.storage.data.[KEY];
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed.data  parsed;
+    } catch (e) { return null; }
+}
+
+async function saveState(updateFn) {
+     1. Скачиваем самое свежее состояние (важно!)
+    const currentState = await loadState();
+    if (!currentState) return alert(Ошибка не удалось получить данные перед сохранением.);
+
+     2. Вносим изменения админа в СВЕЖИЕ данные
+    if (typeof updateFn === 'function') {
+        updateFn(currentState);
+    } else {
+        Object.assign(currentState, updateFn);
+    }
+
+     3. Ставим время обновления ЧУТЬ ВПЕРЕД (на 1 секунду), чтобы перекрыть тики игроков
+    currentState.lastUpdate = Date.now() + 1000;
+
+    const fd = new FormData();
+    fd.append('token', window.ForumAPITicket  '');
+    fd.append('method', 'storage.set');
+    fd.append('app_id', APP);
+    fd.append('key', KEY);
+    fd.append('value', JSON.stringify({ data currentState }));
+    
+    const response = await fetch('api.php', { method 'POST', body fd });
+    const result = await response.json();
+
+    if (result.error) {
+        alert(Ошибка сервера при сохранении!);
+    } else {
+        state = currentState;
+        renderAdmin();
+        document.getElementById('syncStatus').textContent = Успешно сохранено  + new Date().toLocaleTimeString();
+        addLocalLog(Данные успешно записаны в базу.);
+    }
+}
+
+ --- ФУНКЦИИ, КОТОРЫЕ ОТСУТСТВОВАЛИ ИЛИ НЕ РАБОТАЛИ ---
+
+async function updateZombieStats() {
+    await saveState((freshState) = {
+        freshState.hp = parseInt(document.getElementById('edit_hp').value)  0;
+        freshState.hunger = parseInt(document.getElementById('edit_hunger').value)  0;
+        freshState.mood = parseInt(document.getElementById('edit_mood').value)  0;
+        freshState.activity = parseInt(document.getElementById('edit_activity').value)  0;
+        freshState.infection = parseInt(document.getElementById('edit_infection').value)  0;
+        
+        if(freshState.hp  0) freshState.isDead = false;
+
+        freshState.logs.unshift({
+            text `📢 SYSTEM Характеристики зомби изменены администратором.`,
+            cssClass 'admin-message'
+        });
+        freshState.logs = freshState.logs.slice(0, 30);  Храним только 30 записей
+    });
+    addLocalLog(Параметры зомби обновлены.);
+}
+
+async function modifyBonuses(mode) {
+    const user = document.getElementById('username').value.trim();
+    const val = parseInt(document.getElementById('bonusAmount').value);
+    if (!user  isNaN(val)) return alert(Заполните ник и количество);
+
+    await saveState((freshState) = {
+        if (!freshState.bonuses) freshState.bonuses = {};
+        const current = parseInt(freshState.bonuses[user]  0);
+        freshState.bonuses[user] = Math.max(0, mode === 'add'  current + val  current - val);
+
+        freshState.logs.unshift({
+            text `📢 SYSTEM ${user} ${mode === 'add'  'получил'  'потерял'} ${val} бон. действий.`,
+            cssClass 'admin-message'
+        });
+    });
+    addLocalLog(`${mode === 'add'  'Добавлено'  'Снято'} ${val} бонусов для ${user}`);
+}
+
+async function resetUserActions() {
+    const user = document.getElementById('username').value.trim();
+    if (!user) return alert(Введите ник);
+    
+    await saveState((freshState) = {
+         Удаляем записи о действиях за СЕГОДНЯ, чтобы у игрока снова стало 99
+        if (freshState.actions && freshState.actions[user]) {
+            delete freshState.actions[user];
+            freshState.logs.unshift({ 
+                text `📢 SYSTEM Лимит действий ${user} сброшен администратором.`, 
+                cssClass 'admin-message' 
+            });
+        }
+    });
+    alert(Лимит для  + user +  сброшен!);
+}
+
+async function resetUserRating() {
+    const user = document.getElementById('username').value.trim();
+    if (!user  !confirm(`Обнулить очки в ТОПе для ${user}`)) return;
+
+    await saveState((freshState) = {
+        if (!freshState.rating) freshState.rating = {};
+        freshState.rating[user] = 0;
+    });
+    addLocalLog(`Рейтинг игрока ${user} обнулен`);
+}
+
+async function resurrectZombie() {
+    if (!confirm(Воскресить зомби Лимиты действий 99 будут сброшены для всех!)) return;
+    
+    await saveState((freshState) = {
+        freshState.hp = 70;
+        freshState.hunger = 60;
+        freshState.mood = 50;
+        freshState.activity = 60;
+        freshState.infection = 10;
+        freshState.isDead = false;
+        freshState.createdAt = Date.now();
+        freshState.rating = {}; 
+        freshState.actions = {};  Единственное место, где обнуляются действия ВСЕХ
+        freshState.logs.unshift({ 
+            text `⚡ СИСТЕМНОЕ Зомби воскрешен администратором!`, 
+            cssClass 'admin-message' 
+        });
+        freshState.logs = freshState.logs.slice(0, 20);
+    });
+    addLocalLog(Зомби воскрешен.);
+    alert(Зомби воскрешен!);
+}
+
+ --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (РЕНДЕР) ---
+
+function filterUsers() {
+    const val = document.getElementById('userSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#bonusTable tr');
+    rows.forEach(row = {
+        row.style.display = row.innerText.toLowerCase().includes(val)  ''  'none';
+    });
+}
+
+function renderAdmin() {
+    if (!state) return;
+    document.getElementById('edit_hp').value = Math.round(state.hp  0);
+    document.getElementById('edit_hunger').value = Math.round(state.hunger  0);
+    document.getElementById('edit_mood').value = Math.round(state.mood  0);
+    document.getElementById('edit_activity').value = Math.round(state.activity  0);
+    document.getElementById('edit_infection').value = Math.round(state.infection  0);
+
+    const list = document.getElementById('bonusList');
+    if (!state.bonuses) { list.innerHTML = Нет данных; return; }
+
+    let html = 'table id=bonusTable style=width100%; border-collapsecollapse; font-size 13px;';
+    Object.entries(state.bonuses).forEach(([user, count]) = {
+        html += `tr style=border-bottom1px solid #eee
+            td style=padding8px${user}td
+            td style=padding8pxb${count}b 🎁td
+            td style=text-alignright
+                button class=info style=padding2px 8px; onclick=document.getElementById('username').value='${user}'Выбратьbutton
+            td
+        tr`;
+    });
+    html += 'table';
+    list.innerHTML = html;
+}
+
+function addLocalLog(msg) {
+    const logDiv = document.getElementById('adminLogs');
+    logDiv.innerHTML = `div style=margin-bottom2px; [${new Date().toLocaleTimeString()}] ${msg}div` + logDiv.innerHTML;
+}
+
+async function init() {
+    state = await loadState();
+    if (state) {
+        renderAdmin();
+        addLocalLog(Данные загружены.);
+    }
+}
+init();
+script
