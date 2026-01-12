@@ -6,22 +6,24 @@
   const REFRESH_MS = 30 * 1000;
 
   const UI = {
-    accent: "#6fd3ff",
+    ice: "#6fd3ff",        // холодный акцент (вторичный)
+    fire: "#ff6a00",       // огонь (основной)
+    fire2: "#ff2d2d",      // красный жар
     border: "rgba(255,255,255,.12)",
-    text: "#eaeaea",
-    mut: "rgba(234,234,234,.70)",
-    bg: "rgba(0,0,0,.35)",
-    bg2: "rgba(255,255,255,.04)"
+    text: "#f2f2f2",
+    mut: "rgba(242,242,242,.68)",
+    bg: "rgba(0,0,0,.40)",
+    bg2: "rgba(255,255,255,.045)"
   };
 
-  const RIGHT_IMAGE_URL = "https://upforme.ru/uploads/001c/84/76/2/180199.png";
+  const RIGHT_IMAGE_URL = "https://upforme.ru/uploads/001c/84/76/2/446867.png";
 
   function esc(s){
     return String(s ?? "")
-      .replaceAll("&","&")
-      .replaceAll("<","<")
-      .replaceAll(">",">")
-      .replaceAll('"',""")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
       .replaceAll("'","'");
   }
 
@@ -29,7 +31,6 @@
 
   function requestParent(action) {
     return new Promise((resolve, reject) => {
-      // 1) прямой доступ (если родитель реально подключён глобально)
       try {
         if (window.PulseMonumentParent && typeof window.PulseMonumentParent[action] === "function") {
           window.PulseMonumentParent[action]().then(resolve).catch(reject);
@@ -37,7 +38,6 @@
         }
       } catch (e) {}
 
-      // 2) через postMessage
       const requestId = "pm_" + Math.random().toString(16).slice(2);
       const timer = setTimeout(() => {
         window.removeEventListener("message", onMsg);
@@ -58,14 +58,14 @@
     });
   }
 
-  function barRow(title, have, need) {
+  function barRow(title, have, need, extraClass) {
     const safeNeed = Math.max(1, Number(need) || 1);
     const safeHave = Number(have) || 0;
     const shownHave = Math.min(safeHave, safeNeed);
     const pct = clamp(Math.floor((shownHave / safeNeed) * 100), 0, 100);
     const id = "bar_" + Math.random().toString(16).slice(2);
     return `
-      <div class="pm-barRow">
+      <div class="pm-barRow ${extraClass||""}">
         <div class="pm-barTop">
           <div class="pm-barTitle">${esc(title)}</div>
           <div class="pm-barNums">${shownHave}/${safeNeed} <span class="pm-muted">(${pct}%)</span></div>
@@ -74,6 +74,20 @@
         <script>(function(){var el=document.getElementById("${id}"); if(!el) return; requestAnimationFrame(function(){el.style.width="${pct}%";});})();<\/script>
       </div>
     `;
+  }
+
+  function buildTopFromLogs(logs){
+    const map = {};
+    (logs||[]).forEach(x=>{
+      const u = (x && x.user) ? String(x.user) : "";
+      if(!u) return;
+      const q = Number(x.qty)||1;
+      map[u] = (map[u]||0) + q;
+    });
+    return Object.entries(map)
+      .sort((a,b)=>b[1]-a[1])
+      .slice(0, 10)
+      .map(([user,total])=>({user,total}));
   }
 
   function render(payload) {
@@ -86,51 +100,231 @@
     const total = has ? payload.data.total : { have:0, need:2000, pct:0 };
     const logs = has ? (payload.data.lastLogs || []) : [];
 
+    const topPlayersRaw = has ? (payload.data.topPlayers || null) : null;
+    const topPlayers = Array.isArray(topPlayersRaw) && topPlayersRaw.length
+      ? topPlayersRaw.slice(0, 10).map(x => ({
+          user: x.user ?? x.name ?? "—",
+          total: Number(x.total ?? x.qty ?? x.sum ?? 0) || 0
+        }))
+      : buildTopFromLogs(logs);
+
     const stagesHtml = stages
-      ? Object.entries(stages).map(([k,v]) => barRow(k, v.have||0, v.need||1)).join("")
+      ? Object.entries(stages).map(([k,v]) => barRow(k, v.have||0, v.need||1, "")).join("")
       : [
-          barRow("Основание", 0, 600),
-          barRow("Фракции", 0, 300),
-          barRow("Логотип PULSE", 0, 300),
-          barRow("Подсветка", 0, 350),
-          barRow("Символ", 0, 450),
+          barRow("Основание", 0, 600, ""),
+          barRow("Фракции", 0, 300, ""),
+          barRow("Логотип PULSE", 0, 300, ""),
+          barRow("Подсветка", 0, 350, ""),
+          barRow("Символ", 0, 450, ""),
         ].join("");
 
-    const totalHtml = barRow("Общий прогресс", total.have||0, total.need||1);
+    const totalHtml = barRow("Общий прогресс", total.have||0, total.need||1, "pm-totalBar");
 
     const logsHtml = logs.length
-      ? logs.slice(0, 40).map(x => {
+      ? logs.slice(0, 50).map(x => {
           return `<div class="pm-logLine">• <b>${esc(x.user||"—")}</b>: +${Number(x.qty)||1} <i>${esc(x.item||"")}</i> → <span class="pm-accentText">${esc(x.stage||"")}</span> <span class="pm-muted">(${esc(x.time||"")})</span></div>`;
         }).join("")
       : `<div class="pm-muted">Пока нет записей. Нужен запуск пересчёта из кабинета.</div>`;
 
+    const topHtml = topPlayers && topPlayers.length
+      ? topPlayers.map((x, i) => {
+          const n = i+1;
+          return `
+            <div class="pm-topLine">
+              <span class="pm-rank">${n}</span>
+              <span class="pm-topUser">${esc(x.user||"—")}</span>
+              <span class="pm-topScore">+${Number(x.total)||0}</span>
+            </div>
+          `;
+        }).join("")
+      : `<div class="pm-muted">Пока нет данных по топу.</div>`;
+
     root.innerHTML = `
       <style>
-        .pm-wrap{border:2px solid ${UI.accent};border-radius:16px;background:linear-gradient(180deg, rgba(111,211,255,.10), ${UI.bg});padding:14px;color:${UI.text};font-family:Arial,sans-serif;}
-        .pm-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
-        .pm-title{font-size:18px;font-weight:800;}
+        :root{
+          /* ✅ ГЛАВНЫЕ РЕГУЛЯТОРЫ */
+          --panelH: 420px;     /* ← тут расширяешь по высоте картинку/топ/журнал */
+          --barW: 72%;         /* ← ширина обычных шкал (короче) */
+          --totalW: 100%;      /* ← ширина общего прогресса (длиннее) */
+        }
+
+        .pm-wrap{
+          border:2px solid rgba(255,106,0,.85);
+          border-radius:16px;
+          background:
+            radial-gradient(1200px 500px at 50% 0%, rgba(41 26 16), rgba(0,0,0,0) 100%),
+            radial-gradient(900px 500px at 50% 30%, rgba(23 15 15), rgba(0,0,0,0) 100%),
+            linear-gradient(180deg, rgba(255,106,0,.10), ${UI.bg});
+          padding:14px;
+          color:${UI.text};
+          font-family:Arial,sans-serif;
+          box-shadow: 0 0 24px rgba(255,106,0,.10);
+        }
+
+        .pm-head{
+          display:flex;
+          justify-content:center; /* ✅ заголовок по центру */
+          align-items:center;
+          flex-wrap:wrap;
+          gap:10px;
+          margin-bottom:10px;
+          text-align:center;
+        }
+        .pm-title{
+          font-size:18px;
+          font-weight:900;
+          letter-spacing:.3px;
+          text-shadow: 0 0 14px rgba(255,106,0,.25);
+        }
         .pm-updated{font-size:12px;color:${UI.mut}}
-        .pm-grid{display:grid;grid-template-columns:1fr 240px;gap:12px;}
-        @media (max-width:650px){.pm-grid{grid-template-columns:1fr;}.pm-right{order:-1;}}
-        .pm-left,.pm-right,.pm-bottom{border:1px solid ${UI.border};border-radius:14px;background:${UI.bg2};}
-        .pm-left{padding:12px;min-height:220px;}
-        .pm-leftTitle{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;}
-        .pm-logBox{max-height:260px;overflow:auto;padding-right:6px;line-height:1.35;}
-        .pm-logBox::-webkit-scrollbar{width:8px}
-        .pm-logBox::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:10px}
-        .pm-right{padding:10px;display:flex;justify-content:center;align-items:center;}
-        .pm-rightImg{width:100%;height:320px;border-radius:12px;background:linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.45)), url('${RIGHT_IMAGE_URL}') center/cover no-repeat;border:1px solid rgba(255,255,255,.10);}
-        .pm-bottom{margin-top:12px;padding:12px;}
-        .pm-bars{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;}
-        @media (max-width:650px){.pm-bars{grid-template-columns:1fr;}}
-        .pm-barRow{border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;background:rgba(0,0,0,.18);}
-        .pm-barTop{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:8px;}
-        .pm-barTitle{font-weight:800;font-size:13px}
-        .pm-barNums{font-size:12px}
-        .pm-barTrack{height:14px;border-radius:999px;background:#222;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);}
-        .pm-barFill{height:100%;background:${UI.accent};width:0%;transition:width 700ms ease;}
+
+        .pm-grid3{
+          display:grid;
+          grid-template-columns: 1fr 1.35fr 1fr;
+          gap:12px;
+          align-items:stretch;
+        }
+        @media (max-width:850px){
+          .pm-grid3{grid-template-columns:1fr;}
+        }
+
+        .pm-box{
+          border:1px solid rgba(255,106,0,.22);
+          border-radius:14px;
+          background:${UI.bg2};
+          overflow:hidden;
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+        }
+
+        /* ✅ одинаковая высота у всех 3 блоков */
+        .pm-panel{
+          height:var(--panelH);
+          display:flex;
+          flex-direction:column;
+        }
+        @media (max-width:850px){
+          .pm-panel{height:auto;}
+        }
+
+        .pm-panelHead{
+          padding:10px 12px;
+          display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+          border-bottom:1px solid rgba(255,255,255,.08);
+          background:linear-gradient(90deg, rgba(255,106,0,.16), rgba(0,0,0,.10));
+        }
+        .pm-panelHead b{font-size:13px}
+
+        .pm-panelBody{
+          padding:10px 12px;
+          overflow:auto;
+          line-height:1.3;
+          flex:1;
+        }
+        .pm-panelBody::-webkit-scrollbar{width:8px}
+        .pm-panelBody::-webkit-scrollbar-thumb{background:rgba(255,106,0,.22);border-radius:10px}
+
+        /* ✅ КАРТИНКА НЕ ОБРЕЗАЕТСЯ */
+        .pm-centerImg{
+          height:var(--panelH);
+          border-radius:14px;
+          background:
+            radial-gradient(600px 260px at 50% 10%, rgba(255,106,0,.22), rgba(0,0,0,0) 60%),
+            url('${RIGHT_IMAGE_URL}') center/contain no-repeat; /* ← contain вместо cover */
+          border:1px solid rgba(255,255,255,.10);
+          box-shadow: 0 0 22px rgba(255,106,0,.10);
+        }
+
+        .pm-topLine{
+          display:grid;
+          grid-template-columns: 26px 1fr auto;
+          gap:8px;
+          align-items:center;
+          padding:6px 8px;
+          border:1px solid rgba(255,255,255,.08);
+          border-radius:10px;
+          background:rgba(0,0,0,.16);
+          margin-bottom:7px;
+        }
+        .pm-rank{
+          width:24px;height:24px;border-radius:8px;
+          display:flex;align-items:center;justify-content:center;
+          background:rgba(255,106,0,.18);
+          border:1px solid rgba(255,106,0,.45);
+          color:#ffd0a1;
+          font-weight:900;
+          font-size:12px;
+          text-shadow:0 0 12px rgba(255,106,0,.25);
+        }
+        .pm-topUser{font-weight:800;font-size:13px}
+        .pm-topScore{font-weight:900;color:${UI.fire}}
+
+        .pm-bottom{
+          margin-top:12px;
+          border:1px solid rgba(255,106,0,.22);
+          border-radius:14px;
+          background:${UI.bg2};
+          padding:12px;
+        }
+
+        /* ✅ ШКАЛЫ КОМПАКТНЕЕ */
+        .pm-barRow{
+          border:1px solid rgba(255,255,255,.10);
+          border-radius:12px;
+          padding:8px;             /* было 10 */
+          background:rgba(0,0,0,.18);
+          margin-bottom:8px;       /* было 10 */
+        }
+        .pm-barTop{
+          display:flex;justify-content:space-between;gap:10px;
+          align-items:baseline;margin-bottom:6px; /* было 8 */
+        }
+        .pm-barTitle{font-weight:900;font-size:12.5px}
+        .pm-barNums{font-size:11.5px}
+
+        .pm-barTrack{
+          height:10px;             /* было 14 */
+          border-radius:999px;
+          background:#1b1b1b;
+          overflow:hidden;
+          box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
+        }
+
+        /* ✅ обычные шкалы короче */
+        .pm-barRow:not(.pm-totalBar){
+          width:var(--barW);
+          margin-left:auto;
+          margin-right:auto;
+        }
+
+        .pm-barFill{
+          height:100%;
+          background:linear-gradient(90deg, ${UI.fire}, ${UI.fire2});
+          width:0%;
+          transition:width 700ms ease;
+          box-shadow: 0 0 10px rgba(255,106,0,.20);
+        }
+
+        /* ✅ общий прогресс длинный и выделенный */
+        .pm-totalBar{
+          width:var(--totalW);
+          border:1px solid rgba(255,106,0,.50);
+          background:linear-gradient(180deg, rgba(255,106,0,.18), rgba(0,0,0,.18));
+          box-shadow: 0 0 18px rgba(255,106,0,.10);
+        }
+        .pm-totalBar .pm-barTitle{font-size:14px}
+        .pm-totalBar .pm-barTrack{height:16px} /* крупнее общего */
+        .pm-totalBar .pm-barFill{box-shadow:0 0 14px rgba(255,106,0,.30)}
+
+        /* остальные шкалы — в одну колонку */
+        .pm-bars{
+          display:grid;
+          grid-template-columns:1fr;
+          gap:8px;
+        }
+
         .pm-muted{color:${UI.mut}}
-        .pm-accentText{color:${UI.accent}}
+        .pm-accentText{color:${UI.ice}}
+        .pm-logLine{margin-bottom:6px}
       </style>
 
       <div class="pm-wrap">
@@ -139,16 +333,26 @@
           <div class="pm-updated">Обновлено: ${esc(updatedAt)}</div>
         </div>
 
-        <div class="pm-grid">
-          <div class="pm-left">
-            <div class="pm-leftTitle"><b>Журнал вкладов</b><span class="pm-muted">последние ${Math.min(40, logs.length||0)}</span></div>
-            <div class="pm-logBox">${logsHtml}</div>
+        <div class="pm-grid3">
+          <div class="pm-box pm-panel">
+            <div class="pm-panelHead">
+              <b>Топ игроков</b><span class="pm-muted">топ-10</span>
+            </div>
+            <div class="pm-panelBody">${topHtml}</div>
           </div>
-          <div class="pm-right"><div class="pm-rightImg"></div></div>
+
+          <div class="pm-centerImg"></div>
+
+          <div class="pm-box pm-panel">
+            <div class="pm-panelHead">
+              <b>Журнал вкладов</b><span class="pm-muted">последние ${Math.min(50, logs.length||0)}</span>
+            </div>
+            <div class="pm-panelBody">${logsHtml}</div>
+          </div>
         </div>
 
         <div class="pm-bottom">
-          <div style="font-weight:800;margin-bottom:8px;">Шкалы прогресса</div>
+          <div style="font-weight:900;margin-bottom:8px;text-shadow:0 0 12px rgba(255,106,0,.18);">Прогресс</div>
           ${totalHtml}
           <div class="pm-bars">${stagesHtml}</div>
         </div>
@@ -161,7 +365,6 @@
       const payload = await requestParent("getStatus");
       render(payload || null);
     } catch (e) {
-      // покажем нули, но без ошибок на экране
       render(null);
       console.warn("PULSE header:", e.message);
     }
