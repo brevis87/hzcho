@@ -1,0 +1,131 @@
+<div class="tama-title">Кабинет управления — Памятник PULSE</div>
+
+<style>
+  #pm-admin{max-width:900px;margin:0 auto;padding:18px;background:#f4f4f4;border-radius:10px;font-family:Arial,sans-serif;color:#222}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  button{cursor:pointer;border:none;border-radius:6px;padding:10px 12px;font-weight:800}
+  .b1{background:#28a745;color:#fff}
+  .b2{background:#007bff;color:#fff}
+  .b3{background:#6c757d;color:#fff}
+  .card{background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px;margin-top:10px}
+  #log{height:180px;overflow:auto;background:#111;color:#0f0;padding:10px;font-family:monospace;font-size:12px;border-radius:6px}
+  pre{white-space:pre-wrap;word-break:break-word}
+</style>
+
+<div id="pm-admin">
+  <div class="row">
+    <button class="b2" id="btnStatus">📦 Получить статус</button>
+    <button class="b1" id="btnRecalc">🧱 Запустить пересчёт</button>
+    <button class="b3" id="btnUnknown">❓ Показать неизвестные</button>
+  </div>
+
+  <div class="card">
+    <b>Кратко</b>
+    <div id="summary" style="margin-top:8px">—</div>
+  </div>
+
+  <div class="card">
+    <b>Debug / Логи кабинета</b>
+    <div id="log" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <b>Сырые данные (payload)</b>
+    <pre id="raw">—</pre>
+  </div>
+</div>
+
+<script>
+(function(){
+  const logEl = document.getElementById("log");
+  const sumEl = document.getElementById("summary");
+  const rawEl = document.getElementById("raw");
+
+  function log(msg){
+    const t = new Date().toLocaleTimeString();
+    logEl.innerHTML = `> [${t}] ${msg}<br>` + logEl.innerHTML;
+  }
+
+  const send = (action, data = {}) => {
+    const requestId = Math.random().toString(16).slice(2);
+    window.parent.postMessage({ _pulseMonument:true, type:"request", requestId, action, ...data }, "*");
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => {
+        window.removeEventListener("message", handler);
+        reject(new Error("Parent timeout / not available"));
+      }, 3500);
+
+      function handler(e){
+        if (e.data?._pulseMonument && e.data.type === "response" && e.data.requestId === requestId) {
+          clearTimeout(t);
+          window.removeEventListener("message", handler);
+          resolve(e.data.result);
+        }
+      }
+      window.addEventListener("message", handler);
+    });
+  };
+
+  function renderPayload(payload){
+    if (!payload || !payload.data){
+      sumEl.textContent = "Данных нет (storage пустой). Нажми пересчёт.";
+      rawEl.textContent = "—";
+      return;
+    }
+    const total = payload.data.total || {have:0,need:0,pct:0};
+    const dbg = payload.data.debug || {};
+    const unk = payload.data.unknown || {};
+    const unkCount = Object.values(unk).reduce((s,n)=>s+(n||0),0);
+
+    sumEl.innerHTML =
+      `<div>Обновлено: <b>${payload.updatedAt || "—"}</b></div>
+       <div>TOTAL: <b>${total.have}/${total.need}</b> (${total.pct || 0}%)</div>
+       <div>Найдено тегов: <b>${dbg.foundSpans || 0}</b>, зачтено: <b>${dbg.counted || 0}</b>, неизвестных: <b>${unkCount}</b></div>`;
+
+    rawEl.textContent = JSON.stringify(payload, null, 2);
+  }
+
+  async function getStatus(){
+    try{
+      log("📦 Читаю статус из storage…");
+      const st = await send("getStatus");
+      if (!st.ok) throw new Error(st.error || "getStatus failed");
+      log(st.cached ? "📦 Статус (cache)" : "📦 Статус (storage)");
+      renderPayload(st.payload);
+      return st.payload;
+    }catch(e){
+      log("❌ " + (e.message || e));
+      alert("Ошибка: " + (e.message || e));
+    }
+  }
+
+  async function recalc(){
+    try{
+      log("🧱 Старт пересчёта…");
+      const r = await send("recalc");
+      if (!r.ok) throw new Error(r.error || "recalc failed");
+      log("✅ Пересчёт выполнен, storage сохранён.");
+      renderPayload(r.payload);
+    }catch(e){
+      log("❌ " + (e.message || e));
+      alert("Ошибка пересчёта: " + (e.message || e));
+    }
+  }
+
+  async function showUnknown(){
+    const payload = await getStatus();
+    if (!payload || !payload.data) return;
+    const unk = payload.data.unknown || {};
+    const pairs = Object.entries(unk).sort((a,b)=> (b[1]||0)-(a[1]||0));
+    if (!pairs.length) return alert("Неизвестных предметов нет ✅");
+    alert("Неизвестные предметы:\n\n" + pairs.map(([k,v])=> `${k}: ${v}`).join("\n"));
+  }
+
+  document.getElementById("btnStatus").onclick = getStatus;
+  document.getElementById("btnRecalc").onclick = recalc;
+  document.getElementById("btnUnknown").onclick = showUnknown;
+
+  // авто-подтяжка
+  getStatus();
+})();
+</script>
