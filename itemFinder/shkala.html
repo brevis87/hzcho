@@ -1,0 +1,174 @@
+[html]
+<div id="pulse-monument-header"></div>
+
+<script>
+(function () {
+  const REFRESH_MS = 30 * 1000;
+
+  const UI = {
+    accent: "#6fd3ff",
+    border: "rgba(255,255,255,.12)",
+    text: "#eaeaea",
+    mut: "rgba(234,234,234,.70)",
+    bg: "rgba(0,0,0,.35)",
+    bg2: "rgba(255,255,255,.04)"
+  };
+
+  const RIGHT_IMAGE_URL = "https://upforme.ru/uploads/001c/84/76/2/180199.png";
+
+  function esc(s){
+    return String(s ?? "")
+      .replaceAll("&","&")
+      .replaceAll("<","<")
+      .replaceAll(">",">")
+      .replaceAll('"',""")
+      .replaceAll("'","'");
+  }
+
+  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
+
+  function requestParent(action) {
+    return new Promise((resolve, reject) => {
+      // 1) прямой доступ (если родитель реально подключён глобально)
+      try {
+        if (window.PulseMonumentParent && typeof window.PulseMonumentParent[action] === "function") {
+          window.PulseMonumentParent[action]().then(resolve).catch(reject);
+          return;
+        }
+      } catch (e) {}
+
+      // 2) через postMessage
+      const requestId = "pm_" + Math.random().toString(16).slice(2);
+      const timer = setTimeout(() => {
+        window.removeEventListener("message", onMsg);
+        reject(new Error("Parent timeout / not available"));
+      }, 2500);
+
+      function onMsg(ev) {
+        const d = ev.data;
+        if (!d?._pulseMonument || d.type !== "response" || d.requestId !== requestId) return;
+        clearTimeout(timer);
+        window.removeEventListener("message", onMsg);
+        if (d.result && d.result.error) reject(new Error(d.result.message || "Parent error"));
+        else resolve(d.result);
+      }
+
+      window.addEventListener("message", onMsg);
+      window.postMessage({ _pulseMonument:true, type:"request", action, requestId }, "*");
+    });
+  }
+
+  function barRow(title, have, need) {
+    const safeNeed = Math.max(1, Number(need) || 1);
+    const safeHave = Number(have) || 0;
+    const shownHave = Math.min(safeHave, safeNeed);
+    const pct = clamp(Math.floor((shownHave / safeNeed) * 100), 0, 100);
+    const id = "bar_" + Math.random().toString(16).slice(2);
+    return `
+      <div class="pm-barRow">
+        <div class="pm-barTop">
+          <div class="pm-barTitle">${esc(title)}</div>
+          <div class="pm-barNums">${shownHave}/${safeNeed} <span class="pm-muted">(${pct}%)</span></div>
+        </div>
+        <div class="pm-barTrack"><div id="${id}" class="pm-barFill" style="width:0%"></div></div>
+        <script>(function(){var el=document.getElementById("${id}"); if(!el) return; requestAnimationFrame(function(){el.style.width="${pct}%";});})();<\/script>
+      </div>
+    `;
+  }
+
+  function render(payload) {
+    const root = document.getElementById("pulse-monument-header");
+    if (!root) return;
+
+    const has = payload && payload.data && payload.data.stages && payload.data.total;
+    const updatedAt = has ? (payload.updatedAt || "") : "";
+    const stages = has ? payload.data.stages : null;
+    const total = has ? payload.data.total : { have:0, need:2000, pct:0 };
+    const logs = has ? (payload.data.lastLogs || []) : [];
+
+    const stagesHtml = stages
+      ? Object.entries(stages).map(([k,v]) => barRow(k, v.have||0, v.need||1)).join("")
+      : [
+          barRow("Основание", 0, 600),
+          barRow("Фракции", 0, 300),
+          barRow("Логотип PULSE", 0, 300),
+          barRow("Подсветка", 0, 350),
+          barRow("Символ", 0, 450),
+        ].join("");
+
+    const totalHtml = barRow("Общий прогресс", total.have||0, total.need||1);
+
+    const logsHtml = logs.length
+      ? logs.slice(0, 40).map(x => {
+          return `<div class="pm-logLine">• <b>${esc(x.user||"—")}</b>: +${Number(x.qty)||1} <i>${esc(x.item||"")}</i> → <span class="pm-accentText">${esc(x.stage||"")}</span> <span class="pm-muted">(${esc(x.time||"")})</span></div>`;
+        }).join("")
+      : `<div class="pm-muted">Пока нет записей. Нужен запуск пересчёта из кабинета.</div>`;
+
+    root.innerHTML = `
+      <style>
+        .pm-wrap{border:2px solid ${UI.accent};border-radius:16px;background:linear-gradient(180deg, rgba(111,211,255,.10), ${UI.bg});padding:14px;color:${UI.text};font-family:Arial,sans-serif;}
+        .pm-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+        .pm-title{font-size:18px;font-weight:800;}
+        .pm-updated{font-size:12px;color:${UI.mut}}
+        .pm-grid{display:grid;grid-template-columns:1fr 240px;gap:12px;}
+        @media (max-width:650px){.pm-grid{grid-template-columns:1fr;}.pm-right{order:-1;}}
+        .pm-left,.pm-right,.pm-bottom{border:1px solid ${UI.border};border-radius:14px;background:${UI.bg2};}
+        .pm-left{padding:12px;min-height:220px;}
+        .pm-leftTitle{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px;}
+        .pm-logBox{max-height:260px;overflow:auto;padding-right:6px;line-height:1.35;}
+        .pm-logBox::-webkit-scrollbar{width:8px}
+        .pm-logBox::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:10px}
+        .pm-right{padding:10px;display:flex;justify-content:center;align-items:center;}
+        .pm-rightImg{width:100%;height:320px;border-radius:12px;background:linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.45)), url('${RIGHT_IMAGE_URL}') center/cover no-repeat;border:1px solid rgba(255,255,255,.10);}
+        .pm-bottom{margin-top:12px;padding:12px;}
+        .pm-bars{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;}
+        @media (max-width:650px){.pm-bars{grid-template-columns:1fr;}}
+        .pm-barRow{border:1px solid rgba(255,255,255,.10);border-radius:12px;padding:10px;background:rgba(0,0,0,.18);}
+        .pm-barTop{display:flex;justify-content:space-between;gap:10px;align-items:baseline;margin-bottom:8px;}
+        .pm-barTitle{font-weight:800;font-size:13px}
+        .pm-barNums{font-size:12px}
+        .pm-barTrack{height:14px;border-radius:999px;background:#222;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);}
+        .pm-barFill{height:100%;background:${UI.accent};width:0%;transition:width 700ms ease;}
+        .pm-muted{color:${UI.mut}}
+        .pm-accentText{color:${UI.accent}}
+      </style>
+
+      <div class="pm-wrap">
+        <div class="pm-head">
+          <div class="pm-title">Восстановление памятника PULSE</div>
+          <div class="pm-updated">Обновлено: ${esc(updatedAt)}</div>
+        </div>
+
+        <div class="pm-grid">
+          <div class="pm-left">
+            <div class="pm-leftTitle"><b>Журнал вкладов</b><span class="pm-muted">последние ${Math.min(40, logs.length||0)}</span></div>
+            <div class="pm-logBox">${logsHtml}</div>
+          </div>
+          <div class="pm-right"><div class="pm-rightImg"></div></div>
+        </div>
+
+        <div class="pm-bottom">
+          <div style="font-weight:800;margin-bottom:8px;">Шкалы прогресса</div>
+          ${totalHtml}
+          <div class="pm-bars">${stagesHtml}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function tick() {
+    try {
+      const payload = await requestParent("getStatus");
+      render(payload || null);
+    } catch (e) {
+      // покажем нули, но без ошибок на экране
+      render(null);
+      console.warn("PULSE header:", e.message);
+    }
+  }
+
+  tick();
+  setInterval(tick, REFRESH_MS);
+})();
+</script>
+[/html]
