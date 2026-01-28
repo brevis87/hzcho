@@ -14,7 +14,7 @@
   const PROG_KEY = "pulse_ril_progress_v1";
 
   // ====== НАСТРОЙКИ (меняешь только тут) ======
-const TARGET_TOTAL = 550; // общая цель (поставь нужное число)
+const TARGET_TOTAL = 5; // общая цель (поставь нужное число)
 
 
 const ALLOWED_ITEMS = new Set([
@@ -144,20 +144,23 @@ function snapshotFrom(st) {
   const points = Number(st.points || 0);
 
   const p = Math.max(0, Math.min(100, (points / TARGET_TOTAL) * 100));
+  const completed = points >= TARGET_TOTAL;   // ✅ ВОТ ЭТА СТРОКА НОВАЯ
 
   const top = buildTopPlayers(st.players, TOP_LIMIT);
-  const logs = (st.logs || []).slice(-LOG_SEND_LIMIT).reverse(); // свежие сверху
+  const logs = (st.logs || []).slice(-LOG_SEND_LIMIT).reverse();
 
   return {
     points,
     target: TARGET_TOTAL,
     p,
+    completed,               // ✅ И ВОТ ЭТО ДОБАВИЛИ В ОТДАЧУ
     updatedAt: Number(st.updatedAt || 0),
     last: st.last || null,
     topPlayers: top,
     logs
   };
 }
+
 
 
   // ---- header bridge ----
@@ -257,8 +260,13 @@ async function applyContribution(itemName, reason){
   for (let attempt = 1; attempt <= 2; attempt++){
     const st = await progGet();
 
-    const base = Number(st.points || 0);
-    const next = base + add; // add=0 => points не меняется
+  if (Number(st.points || 0) >= TARGET_TOTAL) {
+      return { ok:false, why:"completed" };
+    }
+
+const base = Number(st.points || 0);
+const next = Math.min(TARGET_TOTAL, base + add); // ✅ не больше цели
+
 
     // players (меняем только если add > 0)
     const players = st.players || {};
@@ -358,16 +366,19 @@ async function applyContribution(itemName, reason){
 
       const res = await applyContribution(p.name, reason + "|pending");
 
-      if (res.ok) {
-        markApplied(eventKey);
-        clearPending();
-        setLock({ id:p.id, ts:Date.now(), state:"applied" });
-        console.log("✅", TAG, `+${pointsForItem(p.name)} applied:`, p.name, "reason:", reason);
+if (res.ok) {
+  markApplied(eventKey);
+  clearPending();
+  setLock({ id:p.id, ts:Date.now(), state:"applied" });
+} else if (res.why === "completed") {
+  clearPending();
+  setLock({ id:p.id, ts:Date.now(), state:"completed" });
+  console.log(TAG, "build completed — ignoring drops");
+} else {
+  clearLock();
+  console.warn(TAG, "apply failed:", res.why || "unknown");
+}
 
-      } else {
-        clearLock();
-        console.warn(TAG, "apply failed:", res.why || "unknown");
-      }
     } finally {
       IN_TAB_APPLYING = false;
       IN_TAB_APPLYING_ID = null;
