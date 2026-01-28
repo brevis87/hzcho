@@ -1,377 +1,358 @@
 [html]
-<div id="pulse-monument-header"></div>
+<div id="pulseProgressHeader" class="pp-wrap">
+
+  <!-- ===== TOP / IMAGE / LOG ===== -->
+  <div class="pp-topgrid">
+    <div class="pp-card">
+      <div class="pp-card-h">🏆 ТОП ВКЛАДЧИКОВ</div>
+      <div id="ppTop" class="pp-toplist">
+        <div class="pp-empty">Загрузка…</div>
+      </div>
+    </div>
+
+    <div class="pp-center">
+      <img class="pp-center-img" src="https://upforme.ru/uploads/001c/84/76/2/446867.png" alt="PULSE Monument">
+    </div>
+
+    <div class="pp-card">
+      <div class="pp-card-h">📜 ЖУРНАЛ ВКЛАДА</div>
+      <div id="ppLog" class="pp-log">
+        <div class="pp-empty">Загрузка…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BARS ===== -->
+  <div class="pp-title">🏗️ ПРОГРЕСС СТРОЙКИ PULSE</div>
+
+
+
+  <div class="pp-row pp-total">
+    <div class="pp-label"></div>
+    <div class="pp-bar"><div class="pp-fill" id="pp3"></div></div>
+    <div class="pp-num" id="pp3t">0 / 0</div>
+
+  </div>
+
+  <div class="pp-upd" id="ppUpd">Обновление…</div>
+</div>
+
+<style>
+  .pp-wrap{
+  max-width:980px;margin:14px auto;padding:16px 16px 18px;border-radius:18px;
+  font-family:'Roboto Condensed',system-ui,Segoe UI,Roboto,Arial;color:#e9e6ee;
+
+  /* холодная тёмная база + “коллаж” */
+  background:
+    radial-gradient(1200px 600px at 35% 20%, rgba(120,110,150,.22), transparent 60%),
+    radial-gradient(900px 520px at 85% 35%, rgba(90,80,120,.18), transparent 55%),
+    linear-gradient(180deg,#0b0b0e,#070709);
+
+  border:1px solid rgba(160,150,190,.18);
+  box-shadow:
+    0 0 0 1px rgba(20,18,24,.65) inset,
+
+}
+
+/* “шум/бумага” сверху (без картинок) */
+.pp-wrap:before{
+  content:"";
+  position:absolute; inset:0;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.04), rgba(255,255,255,.04) 1px, transparent 1px, transparent 3px);
+  opacity:.12;
+  mix-blend-mode:overlay;
+  pointer-events:none;
+}
+.pp-wrap:after{
+  content:"";
+  position:absolute; inset:-2px;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(210,140,70,.16), transparent 35%),
+    radial-gradient(circle at 82% 22%, rgba(160,150,210,.14), transparent 38%),
+    radial-gradient(circle at 55% 78%, rgba(120,110,150,.10), transparent 42%);
+  opacity:.55;
+  pointer-events:none;
+}
+
+/* top grid */
+.pp-topgrid{
+  display:grid;
+  grid-template-columns: 1fr 420px 1fr;
+  gap:14px;
+  align-items:stretch;
+  margin-bottom:14px;
+  position:relative;
+  z-index:1;
+}
+
+.pp-card{
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  border:1px solid rgba(170,160,210,.14);
+  border-radius:16px;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 10px 24px rgba(0,0,0,.35);
+  padding:12px;
+  min-height:220px;
+  overflow:hidden;
+  position:relative;
+}
+
+/* лёгкая “рваная кромка” у карточек */
+.pp-card:before{
+  content:"";
+  position:absolute; inset:0;
+  background:
+    radial-gradient(12px 10px at 10% 0%, rgba(255,255,255,.12), transparent 65%),
+    radial-gradient(14px 10px at 55% 0%, rgba(255,255,255,.10), transparent 65%),
+    radial-gradient(10px 10px at 90% 0%, rgba(255,255,255,.10), transparent 65%);
+  opacity:.18;
+  pointer-events:none;
+}
+
+.pp-card-h{
+  font-weight:800;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  font-size:12px;
+  color:#caa6ff; /* фиолетовый акцент как на скрине */
+  margin-bottom:10px;
+  text-shadow:0 1px 0 rgba(0,0,0,.4);
+}
+
+.pp-center{
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid rgba(210,140,70,.22); /* “ржавый” акцент */
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.35) inset,
+    0 14px 30px rgba(0,0,0,.40),
+    0 0 26px rgba(210,140,70,.12);
+  background:rgba(0,0,0,.35);
+  min-height:220px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.pp-center-img{
+  width:100%;
+  height:620px;
+  object-fit:contain;
+  display:block;
+  padding:10px;
+  filter: drop-shadow(0 0 14px rgba(180,150,220,.18));
+}
+
+.pp-toplist{display:flex;flex-direction:column;gap:8px}
+
+.pp-toprow{
+  display:grid;
+  grid-template-columns: 26px 1fr auto;
+  gap:10px;
+  align-items:center;
+  padding:8px 10px;
+  border-radius:12px;
+  background:rgba(0,0,0,.32);
+  border:1px solid rgba(170,160,210,.12);
+}
+
+.pp-rank{
+  width:26px;height:26px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(202,166,255,.12);
+  border:1px solid rgba(202,166,255,.22);
+  color:#e9d8ff;
+  font-weight:900;font-size:12px;
+}
+
+.pp-name{
+  font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+.pp-score{
+  font-weight:900;
+  color:#d89a55; /* тёплый акцент */
+}
+
+/* log */
+.pp-log{
+  max-height:620px;
+  overflow:auto;
+  padding-right:4px;
+  scrollbar-width:thin;
+  scrollbar-color: rgba(202,166,255,.55) transparent;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.pp-logrow{
+  padding:8px 10px;
+  border-radius:12px;
+  background:rgba(0,0,0,.30);
+  border:1px solid rgba(170,160,210,.12);
+  line-height:1.25;
+  font-size:12px;
+  color:#d6d1dc;
+}
+.pp-logrow b{color:#e9d8ff}
+.pp-logtime{color:#9c93a8;font-size:11px;margin-bottom:3px}
+
+/* +0/+1/+2 */
+.pp-add{
+  margin-left:6px;
+  font-weight:900;
+  padding:1px 6px;
+  border-radius:999px;
+  border:1px solid rgba(170,160,210,.22);
+  background:rgba(0,0,0,.28);
+}
+.pp-add.pp-add0{ color:#b7b0c2; border-color:rgba(170,160,210,.14); }
+.pp-add.pp-add1{ color:#d89a55; border-color:rgba(216,154,85,.22); }
+.pp-add.pp-add2{ color:#caa6ff; border-color:rgba(202,166,255,.26); }
+
+/* bars */
+.pp-title{
+  font-weight:900;letter-spacing:1px;margin:6px 0 10px;
+  color:#caa6ff;text-align:center;
+  position:relative;
+  z-index:1;
+}
+
+.pp-row{
+  display:grid;grid-template-columns:160px 1fr 120px;gap:12px;
+  align-items:center;margin:10px 0;
+  position:relative;
+  z-index:1;
+}
+
+.pp-total{margin-top:14px;padding-top:12px;border-top:1px solid rgba(170,160,210,.18)}
+.pp-label{font-size:13px;color:#ddd}
+.pp-num{font-size:12px;color:#b7b0c2;text-align:right}
+.pp-bar{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+.pp-fill{
+  height:100%;width:0%;
+  background:linear-gradient(90deg,#caa6ff,#d89a55);
+  transition:width .35s ease
+}
+
+.pp-upd{margin-top:8px;font-size:12px;color:#a59db3;text-align:center;position:relative;z-index:1}
+.pp-empty{color:#9c93a8;font-size:12px;padding:8px 4px}
+
+@media (max-width:700px){
+  .pp-topgrid{grid-template-columns:1fr; }
+  .pp-center-img{height:200px}
+  .pp-card{min-height:auto}
+}
+@media (max-width:650px){
+  .pp-row{grid-template-columns:1fr;gap:6px}
+  .pp-num{text-align:left}
+}
+
+</style>
 
 <script>
-(function () {
-  const REFRESH_MS = 30 * 1000;
+(function(){
+  const send = () => {
+    const requestId = Math.random().toString(16).slice(2);
+    window.top.postMessage({ _pulseProgress:true, type:"progressRequest", requestId }, "*");
 
-  const UI = {
-    ice: "#6fd3ff",        // холодный акцент (вторичный)
-    fire: "#ff6a00",       // огонь (основной)
-    fire2: "#ff2d2d",      // красный жар
-    border: "rgba(255,255,255,.12)",
-    text: "#f2f2f2",
-    mut: "rgba(242,242,242,.68)",
-    bg: "rgba(0,0,0,.40)",
-    bg2: "rgba(255,255,255,.045)"
+    return new Promise(resolve => {
+      const handler = (e) => {
+        if (e.data?._pulseProgress && e.data.type === "progressResponse" && e.data.requestId === requestId) {
+          window.removeEventListener("message", handler);
+          resolve(e.data.data);
+        }
+      };
+      window.addEventListener("message", handler);
+      setTimeout(()=>{ window.removeEventListener("message", handler); resolve(null); }, 4500);
+    });
   };
 
-  const RIGHT_IMAGE_URL = "https://upforme.ru/uploads/001c/84/76/2/446867.png";
-
-  function esc(s){
-    return String(s ?? "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","'");
+  function fmtDate(ts){
+    const d = new Date(ts);
+    // "число месяц год и время"
+    // для русской локали обычно красиво:
+    return d.toLocaleString("ru-RU", { day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit" });
   }
 
-  function clamp(n,a,b){ return Math.max(a, Math.min(b,n)); }
-
-  function requestParent(action) {
-    return new Promise((resolve, reject) => {
-      try {
-        if (window.PulseMonumentParent && typeof window.PulseMonumentParent[action] === "function") {
-          window.PulseMonumentParent[action]().then(resolve).catch(reject);
-          return;
-        }
-      } catch (e) {}
-
-      const requestId = "pm_" + Math.random().toString(16).slice(2);
-      const timer = setTimeout(() => {
-        window.removeEventListener("message", onMsg);
-        reject(new Error("Parent timeout / not available"));
-      }, 2500);
-
-      function onMsg(ev) {
-        const d = ev.data;
-        if (!d?._pulseMonument || d.type !== "response" || d.requestId !== requestId) return;
-        clearTimeout(timer);
-        window.removeEventListener("message", onMsg);
-        if (d.result && d.result.error) reject(new Error(d.result.message || "Parent error"));
-        else resolve(d.result);
-      }
-
-      window.addEventListener("message", onMsg);
-      window.postMessage({ _pulseMonument:true, type:"request", action, requestId }, "*");
-    });
-  }
-
-  function barRow(title, have, need, extraClass) {
-    const safeNeed = Math.max(1, Number(need) || 1);
-    const safeHave = Number(have) || 0;
-    const shownHave = Math.min(safeHave, safeNeed);
-    const pct = clamp(Math.floor((shownHave / safeNeed) * 100), 0, 100);
-    const id = "bar_" + Math.random().toString(16).slice(2);
-    return `
-      <div class="pm-barRow ${extraClass||""}">
-        <div class="pm-barTop">
-          <div class="pm-barTitle">${esc(title)}</div>
-          <div class="pm-barNums">${shownHave}/${safeNeed} <span class="pm-muted">(${pct}%)</span></div>
-        </div>
-        <div class="pm-barTrack"><div id="${id}" class="pm-barFill" style="width:0%"></div></div>
-        <script>(function(){var el=document.getElementById("${id}"); if(!el) return; requestAnimationFrame(function(){el.style.width="${pct}%";});})();<\/script>
-      </div>
-    `;
-  }
-
-  function buildTopFromLogs(logs){
-    const map = {};
-    (logs||[]).forEach(x=>{
-      const u = (x && x.user) ? String(x.user) : "";
-      if(!u) return;
-      const q = Number(x.qty)||1;
-      map[u] = (map[u]||0) + q;
-    });
-    return Object.entries(map)
-      .sort((a,b)=>b[1]-a[1])
-      .slice(0, 10)
-      .map(([user,total])=>({user,total}));
-  }
-
-  function render(payload) {
-    const root = document.getElementById("pulse-monument-header");
-    if (!root) return;
-
-    const has = payload && payload.data && payload.data.stages && payload.data.total;
-    const updatedAt = has ? (payload.updatedAt || "") : "";
-    const stages = has ? payload.data.stages : null;
-    const total = has ? payload.data.total : { have:0, need:2000, pct:0 };
-    const logs = has ? (payload.data.lastLogs || []) : [];
-
-    const topPlayersRaw = has ? (payload.data.topPlayers || null) : null;
-    const topPlayers = Array.isArray(topPlayersRaw) && topPlayersRaw.length
-      ? topPlayersRaw.slice(0, 10).map(x => ({
-          user: x.user ?? x.name ?? "—",
-          total: Number(x.total ?? x.qty ?? x.sum ?? 0) || 0
-        }))
-      : buildTopFromLogs(logs);
-
-    const stagesHtml = stages
-      ? Object.entries(stages).map(([k,v]) => barRow(k, v.have||0, v.need||1, "")).join("")
-      : [
-          barRow("Основание", 0, 600, ""),
-          barRow("Фракции", 0, 300, ""),
-          barRow("Логотип PULSE", 0, 300, ""),
-          barRow("Подсветка", 0, 350, ""),
-          barRow("Символ", 0, 450, ""),
-        ].join("");
-
-    const totalHtml = barRow("Общий прогресс", total.have||0, total.need||1, "pm-totalBar");
-
-    const logsHtml = logs.length
-      ? logs.slice(0, 50).map(x => {
-          return `<div class="pm-logLine">• <b>${esc(x.user||"—")}</b>: +${Number(x.qty)||1} <i>${esc(x.item||"")}</i> → <span class="pm-accentText">${esc(x.stage||"")}</span> <span class="pm-muted">(${esc(x.time||"")})</span></div>`;
-        }).join("")
-      : `<div class="pm-muted">Пока нет записей. Нужен запуск пересчёта из кабинета.</div>`;
-
-    const topHtml = topPlayers && topPlayers.length
-      ? topPlayers.map((x, i) => {
-          const n = i+1;
-          return `
-            <div class="pm-topLine">
-              <span class="pm-rank">${n}</span>
-              <span class="pm-topUser">${esc(x.user||"—")}</span>
-              <span class="pm-topScore">+${Number(x.total)||0}</span>
-            </div>
-          `;
-        }).join("")
-      : `<div class="pm-muted">Пока нет данных по топу.</div>`;
-
-    root.innerHTML = `
-      <style>
-        :root{
-          /* ✅ ГЛАВНЫЕ РЕГУЛЯТОРЫ */
-          --panelH: 420px;     /* ← тут расширяешь по высоте картинку/топ/журнал */
-          --barW: 72%;         /* ← ширина обычных шкал (короче) */
-          --totalW: 100%;      /* ← ширина общего прогресса (длиннее) */
-        }
-
-        .pm-wrap{
-          border:2px solid rgba(255,106,0,.85);
-          border-radius:16px;
-          background:
-            radial-gradient(1200px 500px at 50% 0%, rgba(41 26 16), rgba(0,0,0,0) 100%),
-            radial-gradient(900px 500px at 50% 30%, rgba(23 15 15), rgba(0,0,0,0) 100%),
-            linear-gradient(180deg, rgba(255,106,0,.10), ${UI.bg});
-          padding:14px;
-          color:${UI.text};
-          font-family:Arial,sans-serif;
-          box-shadow: 0 0 24px rgba(255,106,0,.10);
-        }
-
-        .pm-head{
-          display:flex;
-          justify-content:center; /* ✅ заголовок по центру */
-          align-items:center;
-          flex-wrap:wrap;
-          gap:10px;
-          margin-bottom:10px;
-          text-align:center;
-        }
-        .pm-title{
-          font-size:18px;
-          font-weight:900;
-          letter-spacing:.3px;
-          text-shadow: 0 0 14px rgba(255,106,0,.25);
-        }
-        .pm-updated{font-size:12px;color:${UI.mut}}
-
-        .pm-grid3{
-          display:grid;
-          grid-template-columns: 1fr 1.35fr 1fr;
-          gap:12px;
-          align-items:stretch;
-        }
-        @media (max-width:850px){
-          .pm-grid3{grid-template-columns:1fr;}
-        }
-
-        .pm-box{
-          border:1px solid rgba(255,106,0,.22);
-          border-radius:14px;
-          background:${UI.bg2};
-          overflow:hidden;
-          box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
-        }
-
-        /* ✅ одинаковая высота у всех 3 блоков */
-        .pm-panel{
-          height:var(--panelH);
-          display:flex;
-          flex-direction:column;
-        }
-        @media (max-width:850px){
-          .pm-panel{height:auto;}
-        }
-
-        .pm-panelHead{
-          padding:10px 12px;
-          display:flex;justify-content:space-between;align-items:baseline;gap:10px;
-          border-bottom:1px solid rgba(255,255,255,.08);
-          background:linear-gradient(90deg, rgba(255,106,0,.16), rgba(0,0,0,.10));
-        }
-        .pm-panelHead b{font-size:13px}
-
-        .pm-panelBody{
-          padding:10px 12px;
-          overflow:auto;
-          line-height:1.3;
-          flex:1;
-        }
-        .pm-panelBody::-webkit-scrollbar{width:8px}
-        .pm-panelBody::-webkit-scrollbar-thumb{background:rgba(255,106,0,.22);border-radius:10px}
-
-        /* ✅ КАРТИНКА НЕ ОБРЕЗАЕТСЯ */
-        .pm-centerImg{
-          height:var(--panelH);
-          border-radius:14px;
-          background:
-            radial-gradient(600px 260px at 50% 10%, rgba(255,106,0,.22), rgba(0,0,0,0) 60%),
-            url('${RIGHT_IMAGE_URL}') center/contain no-repeat; /* ← contain вместо cover */
-          border:1px solid rgba(255,255,255,.10);
-          box-shadow: 0 0 22px rgba(255,106,0,.10);
-        }
-
-        .pm-topLine{
-          display:grid;
-          grid-template-columns: 26px 1fr auto;
-          gap:8px;
-          align-items:center;
-          padding:6px 8px;
-          border:1px solid rgba(255,255,255,.08);
-          border-radius:10px;
-          background:rgba(0,0,0,.16);
-          margin-bottom:7px;
-        }
-        .pm-rank{
-          width:24px;height:24px;border-radius:8px;
-          display:flex;align-items:center;justify-content:center;
-          background:rgba(255,106,0,.18);
-          border:1px solid rgba(255,106,0,.45);
-          color:#ffd0a1;
-          font-weight:900;
-          font-size:12px;
-          text-shadow:0 0 12px rgba(255,106,0,.25);
-        }
-        .pm-topUser{font-weight:800;font-size:13px}
-        .pm-topScore{font-weight:900;color:${UI.fire}}
-
-        .pm-bottom{
-          margin-top:12px;
-          border:1px solid rgba(255,106,0,.22);
-          border-radius:14px;
-          background:${UI.bg2};
-          padding:12px;
-        }
-
-        /* ✅ ШКАЛЫ КОМПАКТНЕЕ */
-        .pm-barRow{
-          border:1px solid rgba(255,255,255,.10);
-          border-radius:12px;
-          padding:8px;             /* было 10 */
-          background:rgba(0,0,0,.18);
-          margin-bottom:8px;       /* было 10 */
-        }
-        .pm-barTop{
-          display:flex;justify-content:space-between;gap:10px;
-          align-items:baseline;margin-bottom:6px; /* было 8 */
-        }
-        .pm-barTitle{font-weight:900;font-size:12.5px}
-        .pm-barNums{font-size:11.5px}
-
-        .pm-barTrack{
-          height:10px;             /* было 14 */
-          border-radius:999px;
-          background:#1b1b1b;
-          overflow:hidden;
-          box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
-        }
-
-        /* ✅ обычные шкалы короче */
-        .pm-barRow:not(.pm-totalBar){
-          width:var(--barW);
-          margin-left:auto;
-          margin-right:auto;
-        }
-
-        .pm-barFill{
-          height:100%;
-          background:linear-gradient(90deg, ${UI.fire}, ${UI.fire2});
-          width:0%;
-          transition:width 700ms ease;
-          box-shadow: 0 0 10px rgba(255,106,0,.20);
-        }
-
-        /* ✅ общий прогресс длинный и выделенный */
-        .pm-totalBar{
-          width:var(--totalW);
-          border:1px solid rgba(255,106,0,.50);
-          background:linear-gradient(180deg, rgba(255,106,0,.18), rgba(0,0,0,.18));
-          box-shadow: 0 0 18px rgba(255,106,0,.10);
-        }
-        .pm-totalBar .pm-barTitle{font-size:14px}
-        .pm-totalBar .pm-barTrack{height:16px} /* крупнее общего */
-        .pm-totalBar .pm-barFill{box-shadow:0 0 14px rgba(255,106,0,.30)}
-
-        /* остальные шкалы — в одну колонку */
-        .pm-bars{
-          display:grid;
-          grid-template-columns:1fr;
-          gap:8px;
-        }
-
-        .pm-muted{color:${UI.mut}}
-        .pm-accentText{color:${UI.ice}}
-        .pm-logLine{margin-bottom:6px}
-      </style>
-
-      <div class="pm-wrap">
-        <div class="pm-head">
-          <div class="pm-title">Восстановление памятника PULSE</div>
-          <div class="pm-updated">Обновлено: ${esc(updatedAt)}</div>
-        </div>
-
-        <div class="pm-grid3">
-          <div class="pm-box pm-panel">
-            <div class="pm-panelHead">
-              <b>Топ игроков</b><span class="pm-muted">топ-10</span>
-            </div>
-            <div class="pm-panelBody">${topHtml}</div>
-          </div>
-
-          <div class="pm-centerImg"></div>
-
-          <div class="pm-box pm-panel">
-            <div class="pm-panelHead">
-              <b>Журнал вкладов</b><span class="pm-muted">последние ${Math.min(50, logs.length||0)}</span>
-            </div>
-            <div class="pm-panelBody">${logsHtml}</div>
-          </div>
-        </div>
-
-        <div class="pm-bottom">
-          <div style="font-weight:900;margin-bottom:8px;text-shadow:0 0 12px rgba(255,106,0,.18);">Прогресс</div>
-          ${totalHtml}
-          <div class="pm-bars">${stagesHtml}</div>
-        </div>
-      </div>
-    `;
-  }
-
-  async function tick() {
-    try {
-      const payload = await requestParent("getStatus");
-      render(payload || null);
-    } catch (e) {
-      render(null);
-      console.warn("PULSE header:", e.message);
+  function renderTop(top){
+    const el = document.getElementById("ppTop");
+    if (!Array.isArray(top) || !top.length){
+      el.innerHTML = '<div class="pp-empty">Пока нет вкладов</div>';
+      return;
     }
+    el.innerHTML = top.slice(0,10).map((p, i) => {
+      const name = String(p.name || "—");
+      const total = Number(p.total || 0);
+      return `
+        <div class="pp-toprow">
+          <div class="pp-rank">${i+1}</div>
+          <div class="pp-name" title="${name}">${name}</div>
+          <div class="pp-score">${total}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function renderLog(logs){
+    const el = document.getElementById("ppLog");
+    if (!Array.isArray(logs) || !logs.length){
+      el.innerHTML = '<div class="pp-empty">Журнал пуст</div>';
+      return;
+    }
+    el.innerHTML = logs.slice(0,35).map(l => {
+      const ts = Number(l.ts || 0);
+      const when = ts ? fmtDate(ts) : "—";
+      const player = String(l.player || "—");
+      const item = String(l.item || "—");
+const add = Number(l.add ?? 1); // старые записи могут быть без add
+const cls = add === 2 ? "pp-add2" : (add === 1 ? "pp-add1" : "pp-add0");
+
+return `
+  <div class="pp-logrow">
+    <div class="pp-logtime">${when}</div>
+    <div>
+      <b>${player}</b> приносит: <b>${item}</b>
+      <span class="pp-add ${cls}">+${add}</span>
+    </div>
+  </div>
+`;
+
+
+    }).join("");
+  }
+
+function applyBars(snap){
+  if (!snap) return;
+
+  document.getElementById("pp3").style.width = (snap.p || 0) + "%";
+  document.getElementById("pp3t").textContent = `${snap.points} / ${snap.target}`;
+
+  const d = snap.updatedAt ? new Date(snap.updatedAt) : null;
+  document.getElementById("ppUpd").textContent = d ? ("Обновлено: " + d.toLocaleString("ru-RU")) : "Обновление…";
+}
+
+
+  function applyAll(snap){
+    applyBars(snap);
+    renderTop(snap.topPlayers || []);
+    renderLog(snap.logs || []);
+  }
+
+  async function tick(){
+    const res = await send();
+    if (res && res.success && res.snapshot) applyAll(res.snapshot);
   }
 
   tick();
-  setInterval(tick, REFRESH_MS);
+  setInterval(tick, 15000);
 })();
 </script>
 [/html]
+
+[hideprofile]
