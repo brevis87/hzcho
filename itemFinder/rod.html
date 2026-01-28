@@ -1,251 +1,423 @@
 <!-- ======= PULSE MONUMENT PARENT (HTML-низ) ======= -->
 <script>
 (function () {
-  console.log("🧱 PULSE Monument Parent initialized");
+  "use strict";
 
-  const APP_ID = 16777213;
-  const STORAGE_KEY_PROGRESS = "pulseMonumentGame";
+  if (window.__pulseProgParentLoaded_v12) {
+    console.warn("[PULSE-PROG] duplicate load blocked (v12)");
+    return;
+  }
+  window.__pulseProgParentLoaded_v12 = true;
+  if (window.top !== window.self) return;
 
-  const CONFIG = {
-    TOPIC_ID: 21,
-    LIMIT_POSTS: 200,     // максимум API = 200
-    LOG_LIMIT: 60
-  };
+  const TAG = "[PULSE-PROG]";
+  const PROG_KEY = "pulse_ril_progress_v1";
 
-  const STAGES_BASE = {
-    "Основание":     { need: 600, have: 0 },
-    "Фракции":       { need: 300, have: 0 },
-    "Логотип PULSE": { need: 300, have: 0 },
-    "Подсветка":     { need: 350, have: 0 },
-    "Символ":        { need: 450, have: 0 }
-  };
+  // ====== НАСТРОЙКИ (меняешь только тут) ======
+const TARGET_TOTAL = 550; // общая цель (поставь нужное число)
 
-  const ITEM_TO_STAGE = {
-    "Кирпич":"Основание","Булыжник":"Основание","Плита из бетона":"Основание","Обломок колонны":"Основание",
-    "Осколок эмблемы":"Фракции","Фрагмент знамени":"Фракции","Жетон фракции":"Фракции",
-    "Металлическая пластина":"Логотип PULSE","Ржавая балка":"Логотип PULSE","Арматура":"Логотип PULSE","Титановый лист":"Логотип PULSE",
-    "Светодиод":"Подсветка","Блок питания":"Подсветка","Кабель подсветки":"Подсветка",
-    "Цемент":"Символ","Гипсовый раствор":"Символ","Каменная крошка":"Символ"
-  };
 
-  // --- утилиты ---
-  function deepClone(x){ return JSON.parse(JSON.stringify(x)); }
+const ALLOWED_ITEMS = new Set([
+  "Кирпич","Булыжник"
+]);
 
-  function decodeHtmlEntities(str) {
-    if (!str) return "";
-    // на форумах часто прилетает &lt;span ...&gt;
-    const ta = document.createElement("textarea");
-    ta.innerHTML = str;
-    return ta.value;
+const DOUBLE_ITEMS = new Set([
+  "Плита из бетона","Обломок колонны"
+]);
+
+const LOG_ONLY_ITEMS = new Set([
+  "то что не идет в зачет",
+  "Твой предмет 2"
+]);
+
+
+
+function pointsForItem(name){
+  name = String(name||"").trim();
+  if (LOG_ONLY_ITEMS.has(name)) return 0;
+  if (DOUBLE_ITEMS.has(name)) return 2;
+  return 1;
+}
+
+
+
+
+  const TOP_LIMIT = 10;          // сколько показывать в топе
+  const LOG_LIMIT = 600;         // сколько хранить глобально
+  const LOG_SEND_LIMIT = 50;     // сколько отдавать в шапку
+
+  // pending/locks
+  const CLICK_TS_KEY       = "pulse_ril_click_ts_v1";        // sessionStorage
+  const PENDING_KEY        = "pulse_ril_pending_v1";         // localStorage
+  const LOCK_KEY           = "pulse_ril_pending_lock_v1";    // localStorage
+  const APPLIED_EVENTS_KEY = "pulse_ril_applied_events_v1";  // localStorage ring
+  const APPLIED_LIMIT      = 500;
+
+  const PENDING_TTL_MS = 3 * 60 * 1000;
+  const LOCK_TTL_MS    = 30 * 1000;
+
+  let IN_TAB_APPLYING = false;
+  let IN_TAB_APPLYING_ID = null;
+
+  if (typeof $ === "undefined") {
+    console.error(TAG, "jQuery не найден.");
+    return;
   }
 
-  function safeText(x){ return (x == null) ? "" : String(x); }
+function safeJsonParse(s){ try { return JSON.parse(s); } catch(e){ return null; } }
 
-  function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
 
-  // --- API helpers ---
-  function apiGet(method, params) {
-    return new Promise((resolve, reject) => {
-      $.get("/api.php", { token: ForumAPITicket, method, app_id: APP_ID, ...params }, (resp) => {
-        if (!resp || resp.error || resp.errors) reject(resp);
-        else resolve(resp);
-      }, "json").fail((xhr) => reject(xhr));
-    });
-  }
+function isAllowed(name){
+  name = String(name||"").trim();
+  return ALLOWED_ITEMS.has(name) || DOUBLE_ITEMS.has(name) || LOG_ONLY_ITEMS.has(name);
+}
 
-  function storageSet(key, valueObj) {
-    return new Promise((resolve) => {
-      $.post("/api.php",
-        { token: ForumAPITicket, method: "storage.set", app_id: APP_ID, key, value: JSON.stringify(valueObj) },
-        (response) => resolve(response || {}),
-        "json"
-      ).fail(() => resolve({ error: true, reason: "network_fail" }));
-    });
-  }
 
-  function storageGetRaw(key) {
+
+
+
+  // ---- API helpers ----
+  async function storageGetRaw(key) {
     return new Promise((resolve) => {
       $.get("/api.php",
-        { token: ForumAPITicket, method: "storage.get", app_id: APP_ID, key },
-        (response) => resolve(response?.response?.storage?.data?.[key] || null),
+        { token: ForumAPITicket, method: "storage.get", app_id: 16777213, key },
+        (response) => {
+          if (!response || response.error || response.errors) { resolve({ ok:false, raw:null, missing:false }); return; }
+          const raw = response?.response?.storage?.data?.[key];
+          if (typeof raw === "undefined") { resolve({ ok:true, raw:null, missing:true }); return; }
+          if (!raw || typeof raw !== "string") { resolve({ ok:false, raw:null, missing:false }); return; }
+          resolve({ ok:true, raw, missing:false });
+        },
         "json"
-      ).fail(() => resolve(null));
+      ).fail(() => resolve({ ok:false, raw:null, missing:false }));
     });
   }
 
-  // --- парсер pulse-donate через DOM (без регулярок) ---
-  function extractDonatesFromMessage(messageHtml) {
-    const rows = [];
-    if (!messageHtml) return rows;
-
-    const decoded = decodeHtmlEntities(messageHtml);
-
-    const box = document.createElement("div");
-    // иногда там бывает мусор, но нам важны только span.pulse-donate
-    box.innerHTML = decoded;
-
-    const spans = box.querySelectorAll("span.pulse-donate");
-    spans.forEach((sp) => {
-      const ds = sp.dataset || {};
-      const item = safeText(ds.item).trim();
-      const qty = parseInt(ds.qty || "1", 10) || 1;
-      const user = safeText(ds.user || "—").trim();
-      const time = safeText(ds.time || "").trim();
-      const url  = safeText(ds.url || "").trim();
-      const key  = safeText(ds.key || "").trim();
-
-      const stage = ITEM_TO_STAGE[item];
-      rows.push({
-        key: key || `${user}|${item}|${time}|${url}|${Math.random().toString(16).slice(2)}`,
-        user, item, qty, time, url,
-        stage: stage || null
-      });
+  async function storageSet(key, valueObj) {
+    return new Promise((resolve) => {
+      $.post("/api.php",
+        { token: ForumAPITicket, method: "storage.set", app_id: 16777213, key, value: JSON.stringify(valueObj) },
+        (response) => resolve(response || {}),
+        "json"
+      ).fail(() => resolve({ error:true }));
     });
-
-    return rows;
   }
 
-  function compute(rows) {
-    const stages = deepClone(STAGES_BASE);
+  function nowIso(){ return new Date().toISOString(); }
+  function nowTs(){ return Date.now(); }
 
-    const perUser = {};
-    const unknown = {};     // что не сопоставилось
-    const seenKeys = new Set(); // защита от дублей (если случайно один и тот же span дважды в HTML)
-
-    let counted = 0;
-    let skippedDup = 0;
-
-    rows.forEach(r => {
-      if (seenKeys.has(r.key)) { skippedDup++; return; }
-      seenKeys.add(r.key);
-
-      if (!r.item) {
-        unknown["(пусто)"] = (unknown["(пусто)"] || 0) + 1;
-        return;
-      }
-
-      if (!r.stage) {
-        unknown[r.item] = (unknown[r.item] || 0) + 1;
-        return;
-      }
-
-      if (!stages[r.stage]) return;
-
-      stages[r.stage].have += r.qty;
-      counted += r.qty;
-
-      if (!perUser[r.user]) perUser[r.user] = { total: 0, stages: {} };
-      perUser[r.user].total += r.qty;
-      perUser[r.user].stages[r.stage] = (perUser[r.user].stages[r.stage] || 0) + r.qty;
-    });
-
-    const stageList = Object.entries(stages);
-    const totalNeed = stageList.reduce((s, [, v]) => s + (v.need||0), 0);
-    const totalHave = stageList.reduce((s, [, v]) => s + Math.min((v.have||0), (v.need||0)), 0);
-    const totalPct  = totalNeed ? Math.floor((totalHave / totalNeed) * 100) : 0;
-
-    const lastLogs = rows
-      .filter(r => r.item && r.stage) // только валидные
-      .slice(-CONFIG.LOG_LIMIT)
-      .reverse()
-      .map(r => ({ user:r.user, item:r.item, qty:r.qty, stage:r.stage, time:r.time, url:r.url }));
-
-    return {
-      stages,
-      total: { need: totalNeed, have: totalHave, pct: clamp(totalPct, 0, 100) },
-      lastLogs,
-      perUser,
-      unknown,
-      debug: { foundSpans: rows.length, counted, skippedDup }
-    };
-  }
-
-  let CACHE = { ts: 0, payload: null };
-
-  async function recalc() {
-    if (typeof ForumAPITicket === "undefined" || !ForumAPITicket) {
-      return { ok: false, error: "ForumAPITicket missing (parent должен быть в HTML-низ и работать на страницах темы)" };
-    }
-
-    const resp = await apiGet("post.get", {
-      topic_id: CONFIG.TOPIC_ID,
-      fields: "id,username,message",
-      limit: CONFIG.LIMIT_POSTS
-    });
-
-    const list = resp?.response || [];
-    if (!Array.isArray(list) || !list.length) {
-      return { ok: false, error: "post.get returned empty", raw: resp };
-    }
-
-    // иногда первая “шапка” тоже пост — норм, мы считаем только pulse-donate
-    let all = [];
-    list.forEach(p => { all = all.concat(extractDonatesFromMessage(p.message)); });
-
-    const payload = {
-      updatedAt: new Date().toISOString(),
-      topicId: CONFIG.TOPIC_ID,
-      scannedPosts: list.length,
-      data: compute(all)
-    };
-
-    const save = await storageSet(STORAGE_KEY_PROGRESS, payload);
-    if (save?.error || save?.errors) {
-      return { ok: false, error: "storage.set failed", save };
-    }
-
-    CACHE = { ts: Date.now(), payload };
-    return { ok: true, payload };
-  }
-
-  async function getStatus() {
-    if (CACHE.payload && (Date.now() - CACHE.ts) < 15000) {
-      return { ok: true, payload: CACHE.payload, cached: true };
-    }
-
-    const raw = await storageGetRaw(STORAGE_KEY_PROGRESS);
-    if (!raw) return { ok: true, payload: null };
-
-    try {
-      const payload = JSON.parse(raw);
-      CACHE = { ts: Date.now(), payload };
-      return { ok: true, payload };
-    } catch (e) {
-      return { ok: false, error: "bad json in storage" };
-    }
-  }
-
-  // --- PUBLIC OBJECT (как у MonsterBattleAdmin) ---
-  window.PulseMonumentParent = {
-    recalc,
-    getStatus,
-    dump: async () => (await getStatus())
+function normalizeState(p){
+  const o = (p && typeof p === "object") ? p : {};
+  const players = (o.players && typeof o.players === "object") ? o.players : {};
+  const logs = Array.isArray(o.logs) ? o.logs : [];
+  return {
+    v: 3,
+    points: Number(o.points || 0),
+    updatedAt: Number(o.updatedAt || 0),
+    last: o.last || null,
+    players,
+    logs
   };
+}
 
-  // --- postMessage bridge ---
-  window.addEventListener("message", async function (event) {
+
+  async function progGet() {
+    const got = await storageGetRaw(PROG_KEY);
+    if (got.ok && got.missing) return normalizeState({ v:3, points:0, updatedAt:0, players:{}, logs:[] });
+if (!got.ok) return normalizeState({ v:3, points:0, updatedAt:0, players:{}, logs:[] });
+
+    return normalizeState(safeJsonParse(got.raw));
+  }
+
+function buildTopPlayers(playersObj, limit){
+  const arr = Object.entries(playersObj || {}).map(([name, data]) => ({
+    name,
+    total: Number(data?.total || 0),
+    lastAt: String(data?.lastAt || "")
+  }));
+  arr.sort((a,b) => (b.total - a.total) || a.name.localeCompare(b.name, "ru"));
+  return arr.slice(0, limit);
+}
+
+
+function snapshotFrom(st) {
+  const points = Number(st.points || 0);
+
+  const p = Math.max(0, Math.min(100, (points / TARGET_TOTAL) * 100));
+
+  const top = buildTopPlayers(st.players, TOP_LIMIT);
+  const logs = (st.logs || []).slice(-LOG_SEND_LIMIT).reverse(); // свежие сверху
+
+  return {
+    points,
+    target: TARGET_TOTAL,
+    p,
+    updatedAt: Number(st.updatedAt || 0),
+    last: st.last || null,
+    topPlayers: top,
+    logs
+  };
+}
+
+
+  // ---- header bridge ----
+  window.addEventListener("message", async (event) => {
     const data = event.data;
-    if (!data?._pulseMonument || data.type !== "request") return;
+    if (!data?._pulseProgress || data.type !== "progressRequest") return;
 
-    let result;
     try {
-      if (data.action === "getStatus") result = await getStatus();
-      else if (data.action === "recalc") result = await recalc();
-      else result = { ok: false, error: "Unknown action: " + data.action };
+      const st = await progGet();
+      event.source.postMessage({
+        _pulseProgress: true,
+        type: "progressResponse",
+        requestId: data.requestId,
+        data: { success:true, snapshot: snapshotFrom(st) }
+      }, event.origin);
     } catch (e) {
-      // чтобы не было [object Object]
-      try { result = { ok:false, error: JSON.stringify(e) }; }
-      catch { result = { ok:false, error: String(e) }; }
+      event.source.postMessage({
+        _pulseProgress: true,
+        type: "progressResponse",
+        requestId: data.requestId,
+        data: { success:false, error: e.message }
+      }, event.origin);
     }
-
-    event.source?.postMessage({
-      _pulseMonument: true,
-      type: "response",
-      requestId: data.requestId,
-      result
-    }, event.origin);
   });
 
+  // ---- applied ring ----
+  function getAppliedList(){
+    const raw = localStorage.getItem(APPLIED_EVENTS_KEY);
+    const arr = raw ? safeJsonParse(raw) : null;
+    return Array.isArray(arr) ? arr : [];
+  }
+  function hasApplied(key){ return getAppliedList().includes(key); }
+  function markApplied(key){
+    const arr = getAppliedList();
+    arr.push(key);
+    while (arr.length > APPLIED_LIMIT) arr.shift();
+    localStorage.setItem(APPLIED_EVENTS_KEY, JSON.stringify(arr));
+  }
+
+  // ---- pending ----
+  function setPending(name){
+    const p = {
+      id: (Date.now().toString(16) + Math.random().toString(16).slice(2)),
+      name: String(name||"").trim(),
+      ts: Date.now(),
+      topicId: String(window.FORUM?.topic?.id || "0")
+    };
+    localStorage.setItem(PENDING_KEY, JSON.stringify(p));
+    return p;
+  }
+  function getPending(){
+    const raw = localStorage.getItem(PENDING_KEY);
+    return raw ? safeJsonParse(raw) : null;
+  }
+  function clearPending(){ localStorage.removeItem(PENDING_KEY); }
+
+  // ---- lock ----
+  function getLock(){ return safeJsonParse(localStorage.getItem(LOCK_KEY) || "null"); }
+  function setLock(obj){ localStorage.setItem(LOCK_KEY, JSON.stringify(obj || {})); }
+  function clearLock(){ localStorage.removeItem(LOCK_KEY); }
+
+  function canLock(p){
+    const lock = getLock();
+    if (!lock || !lock.id) return true;
+    const age = Date.now() - Number(lock.ts || 0);
+
+    if (lock.id !== p.id) return age > LOCK_TTL_MS;
+    if (lock.id === p.id && lock.state === "applying") return age > LOCK_TTL_MS;
+    return true;
+  }
+
+  // ---- signals from 39259.js ----
+  function processLooksReal(){
+    const st = sessionStorage.getItem("randomImageState");
+    if (st && st !== "idle") return true;
+    if (sessionStorage.getItem("randomImageFoundTime")) return true;
+    if (sessionStorage.getItem("randomImagePostId")) return true;
+    if (sessionStorage.getItem("randomImageTopicSubject")) return true;
+    return false;
+  }
+
+  function getDropEventKey(p){
+    const ft  = String(sessionStorage.getItem("randomImageFoundTime") || "").trim();
+    const pid = String(sessionStorage.getItem("randomImagePostId") || "").trim();
+    if (ft || pid) return (ft || "0") + "|" + (pid || "0");
+    return String(p?.id || "");
+  }
+
+  // ====== КЛЮЧ: ОДИН ДРОП = ОДИН SET, СТРОГО +1 ======
+async function applyContribution(itemName, reason){
+  const name = String(itemName||"").trim();
+  if (!isAllowed(name)) return { ok:false, why:"unknown_item" };
+
+  const add = pointsForItem(name); // 0 / 1 / 2
+  const playerName = (typeof UserLogin !== "undefined" && UserLogin) ? String(UserLogin) : "Unknown";
+
+  for (let attempt = 1; attempt <= 2; attempt++){
+    const st = await progGet();
+
+    const base = Number(st.points || 0);
+    const next = base + add; // add=0 => points не меняется
+
+    // players (меняем только если add > 0)
+    const players = st.players || {};
+    const cur = (players[playerName] && typeof players[playerName] === "object")
+      ? players[playerName]
+      : { total:0, lastAt:null };
+
+    if (add > 0){
+      players[playerName] = {
+        total: Number(cur.total||0) + add,
+        lastAt: nowIso()
+      };
+    } else {
+      players[playerName] = cur; // log-only: топ не меняем
+    }
+
+    // logs (пишем ВСЕГДА)
+    const logs = Array.isArray(st.logs) ? st.logs : [];
+    logs.push({
+      ts: nowTs(),
+      at: nowIso(),
+      player: playerName,
+      item: name,
+      add,
+      reason
+    });
+    if (logs.length > LOG_LIMIT) logs.splice(0, logs.length - LOG_LIMIT);
+
+    // updatedAt обновляем ВСЕГДА, чтобы шапка видела "обновилось" при любом предмете
+    const payload = {
+      v: 3,
+      points: next,
+      updatedAt: nowTs(),
+      last: { name, add, reason, by: playerName, at: nowIso() },
+      players,
+      logs
+    };
+
+    const res = await storageSet(PROG_KEY, payload);
+    if (res?.error || res?.errors) { await new Promise(r=>setTimeout(r, 450*attempt)); continue; }
+
+    // верификация: если add=0, достаточно, что запись сохранена (updatedAt изменился)
+    const ver = await progGet();
+    if (add === 0) {
+      if (Number(ver.updatedAt||0) >= Number(payload.updatedAt||0)) return { ok:true };
+    } else {
+      if (Number(ver.points||0) >= next) return { ok:true };
+    }
+
+    await new Promise(r=>setTimeout(r, 500*attempt));
+  }
+
+  return { ok:false, why:"failed" };
+}
+
+
+
+
+  // ---- long-backoff attempts (NO intervals) ----
+  let __armed = false;
+  function armPendingAttempts(source){
+    if (__armed) return;
+    __armed = true;
+    const delays = [200, 700, 1500, 3000, 6000, 12000, 20000, 35000, 55000, 80000, 110000];
+    delays.forEach((ms, idx) => {
+      setTimeout(() => {
+        tryApplyPending(source + "#"+(idx+1)).catch(()=>{});
+        if (idx === delays.length - 1) __armed = false;
+      }, ms);
+    });
+  }
+
+  async function tryApplyPending(reason){
+    const p = getPending();
+    if (!p || !p.name) return;
+
+    if (Date.now() - Number(p.ts||0) > PENDING_TTL_MS) { clearPending(); return; }
+    if (!processLooksReal()) return;
+
+    // in-tab mutex (главный анти +2/+3)
+    if (IN_TAB_APPLYING && IN_TAB_APPLYING_ID === p.id) return;
+    if (IN_TAB_APPLYING) return;
+
+    if (!canLock(p)) return;
+
+    IN_TAB_APPLYING = true;
+    IN_TAB_APPLYING_ID = p.id;
+    setLock({ id: p.id, ts: Date.now(), state: "applying" });
+
+    try {
+      const eventKey = getDropEventKey(p);
+      if (hasApplied(eventKey)) {
+        clearPending();
+        setLock({ id:p.id, ts:Date.now(), state:"already_applied" });
+        return;
+      }
+
+      const res = await applyContribution(p.name, reason + "|pending");
+
+      if (res.ok) {
+        markApplied(eventKey);
+        clearPending();
+        setLock({ id:p.id, ts:Date.now(), state:"applied" });
+        console.log("✅", TAG, `+${pointsForItem(p.name)} applied:`, p.name, "reason:", reason);
+
+      } else {
+        clearLock();
+        console.warn(TAG, "apply failed:", res.why || "unknown");
+      }
+    } finally {
+      IN_TAB_APPLYING = false;
+      IN_TAB_APPLYING_ID = null;
+    }
+  }
+
+  // ---- click hook ----
+  document.addEventListener("click", function(ev){
+    const lbl = ev.target && (ev.target.closest ? ev.target.closest(".random-image-label") : null);
+    if (!lbl) return;
+
+    const now = Date.now();
+    const last = Number(sessionStorage.getItem(CLICK_TS_KEY) || 0);
+    if (now - last < 250) return;
+    sessionStorage.setItem(CLICK_TS_KEY, String(now));
+
+    const img = lbl.querySelector("img");
+    const itemName = String(img?.alt || img?.getAttribute("alt") || img?.title || "").trim();
+    if (!itemName) return;
+
+    setPending(itemName);
+    armPendingAttempts("click");
+    setTimeout(()=>{ tryApplyPending("click_fast").catch(()=>{}); }, 120);
+  }, true);
+
+  window.addEventListener("pageshow", () => armPendingAttempts("pageshow"));
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) armPendingAttempts("vis"); });
+
+  armPendingAttempts("boot");
+
+  // ---- admin helpers ----
+  window.PulseProgAdmin = {
+    resetAll: async function(){
+      const payload = { v:3, points:0, updatedAt: nowTs(), last:{ reset:true, at: nowIso() }, players:{}, logs:[] };
+
+      await storageSet(PROG_KEY, payload);
+      localStorage.removeItem(APPLIED_EVENTS_KEY);
+      localStorage.removeItem(PENDING_KEY);
+      localStorage.removeItem(LOCK_KEY);
+      console.log("✅", TAG, "resetAll done");
+      return payload;
+    },
+    dump: async function(){
+      const st = await progGet();
+      console.log("📦", TAG, "dump:", st);
+      return st;
+    }
+  };
+
+  console.log("✅", TAG, "v12 started. Top+Log enabled, strict +1 enabled");
 })();
 </script>
 <!-- ======= /PULSE MONUMENT PARENT ======= -->
