@@ -1,59 +1,61 @@
-<!-- ======= PULSE MONUMENT PARENT (HTML-низ) ======= -->
+
+
+<!-- ======= PULSE MONUMENT PARENT (HTML-низ) — v12.4 SERVER EID RING ======= -->
 <script>
 (function () {
   "use strict";
 
-  if (window.__pulseProgParentLoaded_v12) {
-    console.warn("[PULSE-PROG] duplicate load blocked (v12)");
+  if (window.__pulseProgParentLoaded_v124) {
+    console.warn("[PULSE-PROG] duplicate load blocked (v12.4)");
     return;
   }
-  window.__pulseProgParentLoaded_v12 = true;
+  window.__pulseProgParentLoaded_v124 = true;
   if (window.top !== window.self) return;
 
   const TAG = "[PULSE-PROG]";
   const PROG_KEY = "pulse_ril_progress_v1";
 
-  // ====== НАСТРОЙКИ (меняешь только тут) ======
-const TARGET_TOTAL = 5; // общая цель (поставь нужное число)
+  // ====== НАСТРОЙКИ ======
+  const TARGET_TOTAL = 45;    // ЗНАЧЕНИЕ ШКАЛЫ
 
+  const ALLOWED_ITEMS = new Set([
+    "Кирпич","Булыжник","Плита из бетона","Обломок колонны",
+    "то что не идет в зачет", "то, что не идет в зачет"
+  ]);
 
-const ALLOWED_ITEMS = new Set([
-  "Кирпич","Булыжник"
-]);
+  const DOUBLE_ITEMS = new Set([ "Плита из бетона","Обломок колонны" ]);
 
-const DOUBLE_ITEMS = new Set([
-  "Плита из бетона","Обломок колонны"
-]);
+  const LOG_ONLY_ITEMS = new Set([
+    "то что не идет в зачет",
+    "то, что не идет в зачет",
+    "Твой предмет 2"
+  ]);
 
-const LOG_ONLY_ITEMS = new Set([
-  "то что не идет в зачет",
-  "Твой предмет 2"
-]);
+  function pointsForItem(name){
+    name = String(name||"").trim();
+    if (LOG_ONLY_ITEMS.has(name)) return 0;
+    if (DOUBLE_ITEMS.has(name)) return 2;
+    return 1;
+  }
 
+  const TOP_LIMIT = 10;
+  const LOG_LIMIT = 600;
+  const LOG_SEND_LIMIT = 50;
 
-
-function pointsForItem(name){
-  name = String(name||"").trim();
-  if (LOG_ONLY_ITEMS.has(name)) return 0;
-  if (DOUBLE_ITEMS.has(name)) return 2;
-  return 1;
-}
-
-
-
-
-  const TOP_LIMIT = 10;          // сколько показывать в топе
-  const LOG_LIMIT = 600;         // сколько хранить глобально
-  const LOG_SEND_LIMIT = 50;     // сколько отдавать в шапку
-
-  // pending/locks
+  // keys
   const CLICK_TS_KEY       = "pulse_ril_click_ts_v1";        // sessionStorage
-  const PENDING_KEY        = "pulse_ril_pending_v1";         // localStorage
+  const PENDING_KEY        = "pulse_ril_pending_v1q";        // localStorage (QUEUE)
   const LOCK_KEY           = "pulse_ril_pending_lock_v1";    // localStorage
   const APPLIED_EVENTS_KEY = "pulse_ril_applied_events_v1";  // localStorage ring
-  const APPLIED_LIMIT      = 500;
+  const APPLIED_LIMIT      = 800;
 
-  const PENDING_TTL_MS = 3 * 60 * 1000;
+  // локальная “мгновенная строка” для шапки
+  const LOCAL_LAST_KEY     = "pulse_ril_local_last_v1";      // sessionStorage
+
+  // ✅ СЕРВЕРНАЯ защита от дублей (общая для всех игроков)
+  const EID_RING_LIMIT     = 1200;
+
+  const PENDING_TTL_MS = 20 * 60 * 1000;
   const LOCK_TTL_MS    = 30 * 1000;
 
   let IN_TAB_APPLYING = false;
@@ -64,17 +66,17 @@ function pointsForItem(name){
     return;
   }
 
-function safeJsonParse(s){ try { return JSON.parse(s); } catch(e){ return null; } }
+  function safeJsonParse(s){ try { return JSON.parse(s); } catch(e){ return null; } }
+  function nowIso(){ return new Date().toISOString(); }
+  function nowTs(){ return Date.now(); }
 
+  function ssGet(k){ try { return sessionStorage.getItem(k); } catch(e){ return null; } }
+  function ssSet(k,v){ try { sessionStorage.setItem(k,String(v)); return true; } catch(e){ return false; } }
 
-function isAllowed(name){
-  name = String(name||"").trim();
-  return ALLOWED_ITEMS.has(name) || DOUBLE_ITEMS.has(name) || LOG_ONLY_ITEMS.has(name);
-}
-
-
-
-
+  function isAllowed(name){
+    name = String(name||"").trim();
+    return ALLOWED_ITEMS.has(name) || DOUBLE_ITEMS.has(name) || LOG_ONLY_ITEMS.has(name);
+  }
 
   // ---- API helpers ----
   async function storageGetRaw(key) {
@@ -99,75 +101,56 @@ function isAllowed(name){
         { token: ForumAPITicket, method: "storage.set", app_id: 16777213, key, value: JSON.stringify(valueObj) },
         (response) => resolve(response || {}),
         "json"
-      ).fail(() => resolve({ error:true }));
+      ).fail(() => resolve({ error:true, status:503 }));
     });
   }
 
-  function nowIso(){ return new Date().toISOString(); }
-  function nowTs(){ return Date.now(); }
-
-function normalizeState(p){
-  const o = (p && typeof p === "object") ? p : {};
-  const players = (o.players && typeof o.players === "object") ? o.players : {};
-  const logs = Array.isArray(o.logs) ? o.logs : [];
-  return {
-    v: 3,
-    points: Number(o.points || 0),
-    updatedAt: Number(o.updatedAt || 0),
-    last: o.last || null,
-    players,
-    logs
-  };
-}
-
+  function normalizeState(p){
+    const o = (p && typeof p === "object") ? p : {};
+    const players = (o.players && typeof o.players === "object") ? o.players : {};
+    const logs = Array.isArray(o.logs) ? o.logs : [];
+    const eidRing = Array.isArray(o.eidRing) ? o.eidRing : [];
+    return {
+      v: 4,
+      points: Number(o.points || 0),
+      updatedAt: Number(o.updatedAt || 0),
+      last: o.last || null,
+      players,
+      logs,
+      eidRing
+    };
+  }
 
   async function progGet() {
     const got = await storageGetRaw(PROG_KEY);
-    if (got.ok && got.missing) return normalizeState({ v:3, points:0, updatedAt:0, players:{}, logs:[] });
-if (!got.ok) return normalizeState({ v:3, points:0, updatedAt:0, players:{}, logs:[] });
-
+    if (got.ok && got.missing) return normalizeState({ v:4, points:0, updatedAt:0, players:{}, logs:[], eidRing:[] });
+    if (!got.ok) return normalizeState({ v:4, points:0, updatedAt:0, players:{}, logs:[], eidRing:[] });
     return normalizeState(safeJsonParse(got.raw));
   }
 
-function buildTopPlayers(playersObj, limit){
-  const arr = Object.entries(playersObj || {}).map(([name, data]) => ({
-    name,
-    total: Number(data?.total || 0),
-    lastAt: String(data?.lastAt || "")
-  }));
-  arr.sort((a,b) => (b.total - a.total) || a.name.localeCompare(b.name, "ru"));
-  return arr.slice(0, limit);
-}
+  function buildTopPlayers(playersObj, limit){
+    const arr = Object.entries(playersObj || {}).map(([name, data]) => ({
+      name,
+      total: Number(data?.total || 0),
+      lastAt: String(data?.lastAt || "")
+    }));
+    arr.sort((a,b) => (b.total - a.total) || a.name.localeCompare(b.name, "ru"));
+    return arr.slice(0, limit);
+  }
 
-
-function snapshotFrom(st) {
-  const points = Number(st.points || 0);
-
-  const p = Math.max(0, Math.min(100, (points / TARGET_TOTAL) * 100));
-  const completed = points >= TARGET_TOTAL;   // ✅ ВОТ ЭТА СТРОКА НОВАЯ
-
-  const top = buildTopPlayers(st.players, TOP_LIMIT);
-  const logs = (st.logs || []).slice(-LOG_SEND_LIMIT).reverse();
-
-  return {
-    points,
-    target: TARGET_TOTAL,
-    p,
-    completed,               // ✅ И ВОТ ЭТО ДОБАВИЛИ В ОТДАЧУ
-    updatedAt: Number(st.updatedAt || 0),
-    last: st.last || null,
-    topPlayers: top,
-    logs
-  };
-}
-
-
+  function snapshotFrom(st) {
+    const points = Number(st.points || 0);
+    const p = Math.max(0, Math.min(100, (points / TARGET_TOTAL) * 100));
+    const completed = points >= TARGET_TOTAL;
+    const top = buildTopPlayers(st.players, TOP_LIMIT);
+    const logs = (st.logs || []).slice(-LOG_SEND_LIMIT).reverse();
+    return { points, target: TARGET_TOTAL, p, completed, updatedAt: Number(st.updatedAt || 0), last: st.last || null, topPlayers: top, logs };
+  }
 
   // ---- header bridge ----
   window.addEventListener("message", async (event) => {
     const data = event.data;
     if (!data?._pulseProgress || data.type !== "progressRequest") return;
-
     try {
       const st = await progGet();
       event.source.postMessage({
@@ -186,7 +169,7 @@ function snapshotFrom(st) {
     }
   });
 
-  // ---- applied ring ----
+  // ---- applied ring (local) ----
   function getAppliedList(){
     const raw = localStorage.getItem(APPLIED_EVENTS_KEY);
     const arr = raw ? safeJsonParse(raw) : null;
@@ -200,137 +183,157 @@ function snapshotFrom(st) {
     localStorage.setItem(APPLIED_EVENTS_KEY, JSON.stringify(arr));
   }
 
-  // ---- pending ----
-  function setPending(name){
+  // ---- QUEUE pending ----
+  function getQueue(){
+    const raw = localStorage.getItem(PENDING_KEY);
+    const arr = raw ? safeJsonParse(raw) : null;
+    return Array.isArray(arr) ? arr : [];
+  }
+  function setQueue(q){
+    if (!q || !q.length) localStorage.removeItem(PENDING_KEY);
+    else localStorage.setItem(PENDING_KEY, JSON.stringify(q));
+  }
+
+  function pushPending(name, eid){
     const p = {
       id: (Date.now().toString(16) + Math.random().toString(16).slice(2)),
       name: String(name||"").trim(),
       ts: Date.now(),
-      topicId: String(window.FORUM?.topic?.id || "0")
+      topicId: String(window.FORUM?.topic?.id || "0"),
+      eid: String(eid || "")
     };
-    localStorage.setItem(PENDING_KEY, JSON.stringify(p));
+    const q = getQueue();
+    q.push(p);
+    while (q.length > 30) q.shift();
+    setQueue(q);
     return p;
   }
-  function getPending(){
-    const raw = localStorage.getItem(PENDING_KEY);
-    return raw ? safeJsonParse(raw) : null;
-  }
-  function clearPending(){ localStorage.removeItem(PENDING_KEY); }
+  function peekPending(){ const q = getQueue(); return q.length ? q[0] : null; }
+  function shiftPending(){ const q = getQueue(); if (!q.length) return; q.shift(); setQueue(q); }
 
   // ---- lock ----
   function getLock(){ return safeJsonParse(localStorage.getItem(LOCK_KEY) || "null"); }
   function setLock(obj){ localStorage.setItem(LOCK_KEY, JSON.stringify(obj || {})); }
   function clearLock(){ localStorage.removeItem(LOCK_KEY); }
-
   function canLock(p){
     const lock = getLock();
     if (!lock || !lock.id) return true;
     const age = Date.now() - Number(lock.ts || 0);
-
-    if (lock.id !== p.id) return age > LOCK_TTL_MS;
-    if (lock.id === p.id && lock.state === "applying") return age > LOCK_TTL_MS;
+    if (age > LOCK_TTL_MS) return true;
+    if (lock.id !== p.id) return false;
     return true;
   }
 
-  // ---- signals from 39259.js ----
-  function processLooksReal(){
-    const st = sessionStorage.getItem("randomImageState");
-    if (st && st !== "idle") return true;
-    if (sessionStorage.getItem("randomImageFoundTime")) return true;
-    if (sessionStorage.getItem("randomImagePostId")) return true;
-    if (sessionStorage.getItem("randomImageTopicSubject")) return true;
-    return false;
+  // ---- стабильный eventKey ----
+  function makeEventIdForClick(itemName){
+    const ft  = String(ssGet("randomImageFoundTime") || "").trim();
+    const pid = String(ssGet("randomImagePostId") || "").trim();
+    const tid = String(window.FORUM?.topic?.id || "0");
+    const nm  = String(itemName || "").trim();
+
+    // если drop-скрипт дал координаты — это лучший ключ
+    if (ft || pid) return `${tid}|${ft||"0"}|${pid||"0"}|${nm}`;
+
+    // fallback: “бакет” 2 секунды, чтобы одна и та же картинка не давала 2 разных eid от двойного клика
+    const bucket = Math.floor(Date.now()/2000);
+    return `${tid}|${nm}|${bucket}`;
   }
 
   function getDropEventKey(p){
-    const ft  = String(sessionStorage.getItem("randomImageFoundTime") || "").trim();
-    const pid = String(sessionStorage.getItem("randomImagePostId") || "").trim();
-    if (ft || pid) return (ft || "0") + "|" + (pid || "0");
-    return String(p?.id || "");
+    const eid = String(p?.eid || "").trim();
+    if (eid) return eid;
+    return String(p?.topicId || "0") + "|" + String(p?.id || "");
   }
 
-  // ====== КЛЮЧ: ОДИН ДРОП = ОДИН SET, СТРОГО +1 ======
-async function applyContribution(itemName, reason){
-  const name = String(itemName||"").trim();
-  if (!isAllowed(name)) return { ok:false, why:"unknown_item" };
+  function broadcastForceRefresh(){
+    try { window.postMessage({ _pulseProgress:true, type:"forceRefresh" }, "*"); } catch(e){}
+  }
 
-  const add = pointsForItem(name); // 0 / 1 / 2
-  const playerName = (typeof UserLogin !== "undefined" && UserLogin) ? String(UserLogin) : "Unknown";
+  // ===== apply (серверная анти-дубль через eidRing) =====
+  async function applyContribution(itemName, reason, eventId){
+    const name = String(itemName||"").trim();
+    if (!isAllowed(name)) return { ok:false, why:"unknown_item" };
 
-  for (let attempt = 1; attempt <= 2; attempt++){
-    const st = await progGet();
+    const add = pointsForItem(name);
+    const playerName = (typeof UserLogin !== "undefined" && UserLogin) ? String(UserLogin) : "Unknown";
+    const eid = String(eventId || "").trim();
 
-  if (Number(st.points || 0) >= TARGET_TOTAL) {
-      return { ok:false, why:"completed" };
-    }
+    for (let attempt = 1; attempt <= 3; attempt++){
+      const st = await progGet();
 
-const base = Number(st.points || 0);
-const next = Math.min(TARGET_TOTAL, base + add); // ✅ не больше цели
+      // ✅ главный стоп-кран: если eid уже был — это повтор/ретрай → НЕ добавляем лог
+      if (eid && st.eidRing && st.eidRing.includes(eid)) {
+        return { ok:true, why:"already_in_eidRing" };
+      }
 
+      if (Number(st.points || 0) >= TARGET_TOTAL) return { ok:false, why:"completed" };
 
-    // players (меняем только если add > 0)
-    const players = st.players || {};
-    const cur = (players[playerName] && typeof players[playerName] === "object")
-      ? players[playerName]
-      : { total:0, lastAt:null };
+      const base = Number(st.points || 0);
+      const next = Math.min(TARGET_TOTAL, base + add);
 
-    if (add > 0){
-      players[playerName] = {
-        total: Number(cur.total||0) + add,
-        lastAt: nowIso()
+      const players = st.players || {};
+      const cur = (players[playerName] && typeof players[playerName] === "object")
+        ? players[playerName]
+        : { total:0, lastAt:null };
+
+      if (add > 0){
+        players[playerName] = { total: Number(cur.total||0) + add, lastAt: nowIso() };
+      } else {
+        players[playerName] = cur;
+      }
+
+      const logs = Array.isArray(st.logs) ? st.logs : [];
+      logs.push({ ts: nowTs(), at: nowIso(), player: playerName, item: name, add, reason, eid: eid || null });
+      if (logs.length > LOG_LIMIT) logs.splice(0, logs.length - LOG_LIMIT);
+
+      // eidRing обновляем всегда при успешной записи (если eid есть)
+      const eidRing = Array.isArray(st.eidRing) ? st.eidRing.slice() : [];
+      if (eid){
+        eidRing.push(eid);
+        while (eidRing.length > EID_RING_LIMIT) eidRing.shift();
+      }
+
+      const payload = {
+        v: 4,
+        points: next,
+        updatedAt: nowTs(),
+        last: { name, add, reason, by: playerName, at: nowIso(), eid: eid || null },
+        players,
+        logs,
+        eidRing
       };
-    } else {
-      players[playerName] = cur; // log-only: топ не меняем
+
+      const res = await storageSet(PROG_KEY, payload);
+      if (res?.error || res?.errors) {
+        // 503/ошибки — пауза и повтор
+        await new Promise(r=>setTimeout(r, 500*attempt));
+        continue;
+      }
+
+      // верификация
+      const ver = await progGet();
+      if (eid && ver.eidRing && ver.eidRing.includes(eid)) return { ok:true, add };
+      if (!eid) {
+        // fallback: как раньше
+        if (add === 0) {
+          if (Number(ver.updatedAt||0) >= Number(payload.updatedAt||0)) return { ok:true, add };
+        } else {
+          if (Number(ver.points||0) >= next) return { ok:true, add };
+        }
+      }
+
+      await new Promise(r=>setTimeout(r, 300*attempt));
     }
 
-    // logs (пишем ВСЕГДА)
-    const logs = Array.isArray(st.logs) ? st.logs : [];
-    logs.push({
-      ts: nowTs(),
-      at: nowIso(),
-      player: playerName,
-      item: name,
-      add,
-      reason
-    });
-    if (logs.length > LOG_LIMIT) logs.splice(0, logs.length - LOG_LIMIT);
-
-    // updatedAt обновляем ВСЕГДА, чтобы шапка видела "обновилось" при любом предмете
-    const payload = {
-      v: 3,
-      points: next,
-      updatedAt: nowTs(),
-      last: { name, add, reason, by: playerName, at: nowIso() },
-      players,
-      logs
-    };
-
-    const res = await storageSet(PROG_KEY, payload);
-    if (res?.error || res?.errors) { await new Promise(r=>setTimeout(r, 450*attempt)); continue; }
-
-    // верификация: если add=0, достаточно, что запись сохранена (updatedAt изменился)
-    const ver = await progGet();
-    if (add === 0) {
-      if (Number(ver.updatedAt||0) >= Number(payload.updatedAt||0)) return { ok:true };
-    } else {
-      if (Number(ver.points||0) >= next) return { ok:true };
-    }
-
-    await new Promise(r=>setTimeout(r, 500*attempt));
+    return { ok:false, why:"failed" };
   }
 
-  return { ok:false, why:"failed" };
-}
-
-
-
-
-  // ---- long-backoff attempts (NO intervals) ----
+  // ---- attempts ----
   let __armed = false;
   function armPendingAttempts(source){
     if (__armed) return;
     __armed = true;
-    const delays = [200, 700, 1500, 3000, 6000, 12000, 20000, 35000, 55000, 80000, 110000];
+    const delays = [200, 700, 1500, 3000, 6000, 12000, 20000, 35000, 55000];
     delays.forEach((ms, idx) => {
       setTimeout(() => {
         tryApplyPending(source + "#"+(idx+1)).catch(()=>{});
@@ -340,16 +343,13 @@ const next = Math.min(TARGET_TOTAL, base + add); // ✅ не больше цел
   }
 
   async function tryApplyPending(reason){
-    const p = getPending();
+    const p = peekPending();
     if (!p || !p.name) return;
 
-    if (Date.now() - Number(p.ts||0) > PENDING_TTL_MS) { clearPending(); return; }
-    if (!processLooksReal()) return;
+    if (Date.now() - Number(p.ts||0) > PENDING_TTL_MS) { shiftPending(); return; }
 
-    // in-tab mutex (главный анти +2/+3)
     if (IN_TAB_APPLYING && IN_TAB_APPLYING_ID === p.id) return;
     if (IN_TAB_APPLYING) return;
-
     if (!canLock(p)) return;
 
     IN_TAB_APPLYING = true;
@@ -358,27 +358,33 @@ const next = Math.min(TARGET_TOTAL, base + add); // ✅ не больше цел
 
     try {
       const eventKey = getDropEventKey(p);
+
+      // локальный applied — быстрый отбой
       if (hasApplied(eventKey)) {
-        clearPending();
-        setLock({ id:p.id, ts:Date.now(), state:"already_applied" });
+        shiftPending();
+        setTimeout(()=>{ tryApplyPending("queue_next").catch(()=>{}); }, 60);
         return;
       }
 
-      const res = await applyContribution(p.name, reason + "|pending");
+      const res = await applyContribution(p.name, String(reason||"") + "|pending", eventKey);
 
-if (res.ok) {
-  markApplied(eventKey);
-  clearPending();
-  setLock({ id:p.id, ts:Date.now(), state:"applied" });
-} else if (res.why === "completed") {
-  clearPending();
-  setLock({ id:p.id, ts:Date.now(), state:"completed" });
-  console.log(TAG, "build completed — ignoring drops");
-} else {
-  clearLock();
-  console.warn(TAG, "apply failed:", res.why || "unknown");
-}
+      if (res.ok) {
+        markApplied(eventKey);
+        shiftPending();
+        setLock({ id:p.id, ts:Date.now(), state:"applied" });
 
+        // ✅ мгновенно просим шапку обновиться
+        broadcastForceRefresh();
+
+        // ✅ применяем следующий
+        setTimeout(()=>{ tryApplyPending("queue_next").catch(()=>{}); }, 60);
+      } else if (res.why === "completed") {
+        shiftPending();
+        setLock({ id:p.id, ts:Date.now(), state:"completed" });
+      } else {
+        clearLock();
+        console.warn(TAG, "apply failed:", res.why || "unknown");
+      }
     } finally {
       IN_TAB_APPLYING = false;
       IN_TAB_APPLYING_ID = null;
@@ -391,29 +397,38 @@ if (res.ok) {
     if (!lbl) return;
 
     const now = Date.now();
-    const last = Number(sessionStorage.getItem(CLICK_TS_KEY) || 0);
+    const last = Number(ssGet(CLICK_TS_KEY) || 0);
     if (now - last < 250) return;
-    sessionStorage.setItem(CLICK_TS_KEY, String(now));
+    ssSet(CLICK_TS_KEY, String(now));
 
     const img = lbl.querySelector("img");
     const itemName = String(img?.alt || img?.getAttribute("alt") || img?.title || "").trim();
     if (!itemName) return;
 
-    setPending(itemName);
+    const eid = makeEventIdForClick(itemName);
+
+    // ✅ локально показываем “мгновенную строку” в шапке (пока API пишет)
+    ssSet(LOCAL_LAST_KEY, JSON.stringify({
+      ts: Date.now(),
+      player: (typeof UserLogin !== "undefined" && UserLogin) ? String(UserLogin) : "Unknown",
+      item: itemName,
+      eid
+    }));
+    broadcastForceRefresh();
+
+    pushPending(itemName, eid);
     armPendingAttempts("click");
     setTimeout(()=>{ tryApplyPending("click_fast").catch(()=>{}); }, 120);
   }, true);
 
   window.addEventListener("pageshow", () => armPendingAttempts("pageshow"));
   document.addEventListener("visibilitychange", () => { if (!document.hidden) armPendingAttempts("vis"); });
-
   armPendingAttempts("boot");
 
   // ---- admin helpers ----
   window.PulseProgAdmin = {
     resetAll: async function(){
-      const payload = { v:3, points:0, updatedAt: nowTs(), last:{ reset:true, at: nowIso() }, players:{}, logs:[] };
-
+      const payload = { v:4, points:0, updatedAt: nowTs(), last:{ reset:true, at: nowIso(), eid:null }, players:{}, logs:[], eidRing:[] };
       await storageSet(PROG_KEY, payload);
       localStorage.removeItem(APPLIED_EVENTS_KEY);
       localStorage.removeItem(PENDING_KEY);
@@ -428,7 +443,7 @@ if (res.ok) {
     }
   };
 
-  console.log("✅", TAG, "v12 started. Top+Log enabled, strict +1 enabled");
+  console.log("✅", TAG, "v12.4 started (SERVER eidRing anti-dupes + fast refresh + local preview)");
 })();
 </script>
 <!-- ======= /PULSE MONUMENT PARENT ======= -->
