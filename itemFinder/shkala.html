@@ -4,7 +4,7 @@
   <!-- ===== TOP / IMAGE / LOG ===== -->
   <div class="pp-topgrid">
     <div class="pp-card">
-      <div class="pp-card-h">🏆 ТОП ВКЛАДЧИКОВ</div>
+      <div class="pp-card-h">ТОП ВКЛАДЧИКОВ</div>
       <div id="ppTop" class="pp-toplist">
         <div class="pp-empty">Загрузка…</div>
       </div>
@@ -15,7 +15,7 @@
     </div>
 
     <div class="pp-card">
-      <div class="pp-card-h">📜 ЖУРНАЛ ВКЛАДА</div>
+      <div class="pp-card-h">ЖУРНАЛ ВКЛАДА</div>
       <div id="ppLog" class="pp-log">
         <div class="pp-empty">Загрузка…</div>
       </div>
@@ -23,15 +23,12 @@
   </div>
 
   <!-- ===== BARS ===== -->
-  <div class="pp-title">🏗️ ПРОГРЕСС СТРОЙКИ PULSE</div>
-
-
+  <div class="pp-title">ШКАЛА ПРОГРЕССА СТРОЙКИ</div>
 
   <div class="pp-row pp-total">
     <div class="pp-label"></div>
     <div class="pp-bar"><div class="pp-fill" id="pp3"></div></div>
     <div class="pp-num" id="pp3t">0 / 0</div>
-
   </div>
 
   <div class="pp-upd" id="ppUpd">Обновление…</div>
@@ -39,224 +36,247 @@
 
 <style>
   .pp-wrap{
-  max-width:980px;margin:14px auto;padding:16px 16px 18px;border-radius:18px;
-  font-family:'Roboto Condensed',system-ui,Segoe UI,Roboto,Arial;color:#e9e6ee;
+    position:relative; /* ✅ нужно для :before/:after */
+    overflow:hidden;   /* ✅ чтобы декоративные слои не вылезали */
+    max-width:980px;
+    margin:14px auto;
+    padding:16px 16px 18px;
+    border-radius:18px;
+    font-family:'Roboto Condensed',system-ui,Segoe UI,Roboto,Arial;
+    color:#e9e6ee;
 
-  /* холодная тёмная база + “коллаж” */
-  background:
-    radial-gradient(1200px 600px at 35% 20%, rgba(120,110,150,.22), transparent 60%),
-    radial-gradient(900px 520px at 85% 35%, rgba(90,80,120,.18), transparent 55%),
-    linear-gradient(180deg,#0b0b0e,#070709);
+    background:
+      radial-gradient(1200px 600px at 35% 20%, rgba(120,110,150,.22), transparent 60%),
+      radial-gradient(900px 520px at 85% 35%, rgba(90,80,120,.18), transparent 55%),
+      linear-gradient(180deg,#0b0b0e,#070709);
 
-  border:1px solid rgba(160,150,190,.18);
-  box-shadow:
-    0 0 0 1px rgba(20,18,24,.65) inset,
+    border:1px solid rgba(160,150,190,.18);
 
-}
+    /* ✅ ВАЖНО: убрали лишнюю запятую */
+    box-shadow:
+      0 0 0 1px rgba(20,18,24,.65) inset;
+  }
 
-/* “шум/бумага” сверху (без картинок) */
-.pp-wrap:before{
-  content:"";
-  position:absolute; inset:0;
-  background:
-    repeating-linear-gradient(0deg, rgba(255,255,255,.04), rgba(255,255,255,.04) 1px, transparent 1px, transparent 3px);
-  opacity:.12;
-  mix-blend-mode:overlay;
-  pointer-events:none;
-}
-.pp-wrap:after{
-  content:"";
-  position:absolute; inset:-2px;
-  background:
-    radial-gradient(circle at 12% 18%, rgba(210,140,70,.16), transparent 35%),
-    radial-gradient(circle at 82% 22%, rgba(160,150,210,.14), transparent 38%),
-    radial-gradient(circle at 55% 78%, rgba(120,110,150,.10), transparent 42%);
-  opacity:.55;
-  pointer-events:none;
-}
+  /* “шум/бумага” сверху (без картинок) */
+  .pp-wrap:before{
+    content:"";
+    position:absolute; inset:0;
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.04), rgba(255,255,255,.04) 1px, transparent 1px, transparent 3px);
+    opacity:.12;
+    mix-blend-mode:overlay;
+    pointer-events:none;
+    z-index:0;
+  }
+  .pp-wrap:after{
+    content:"";
+    position:absolute; inset:-2px;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(210,140,70,.16), transparent 35%),
+      radial-gradient(circle at 82% 22%, rgba(160,150,210,.14), transparent 38%),
+      radial-gradient(circle at 55% 78%, rgba(120,110,150,.10), transparent 42%);
+    opacity:.55;
+    pointer-events:none;
+    z-index:0;
+  }
 
-/* top grid */
-.pp-topgrid{
-  display:grid;
-  grid-template-columns: 1fr 420px 1fr;
-  gap:14px;
-  align-items:stretch;
-  margin-bottom:14px;
-  position:relative;
-  z-index:1;
-}
+  /* top grid */
+  .pp-topgrid{
+    display:grid;
+    grid-template-columns: 1fr 420px 1fr;
+    gap:14px;
+    align-items:stretch;
+    margin-bottom:14px;
+    position:relative;
+    z-index:1;
+  }
 
-.pp-card{
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-  border:1px solid rgba(170,160,210,.14);
-  border-radius:16px;
-  box-shadow:
-    0 0 0 1px rgba(0,0,0,.35) inset,
-    0 10px 24px rgba(0,0,0,.35);
-  padding:12px;
-  min-height:220px;
-  overflow:hidden;
-  position:relative;
-}
+  .pp-card{
+    background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+    border:1px solid rgba(170,160,210,.14);
+    border-radius:16px;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.35) inset,
+      0 10px 24px rgba(0,0,0,.35);
+    padding:12px;
+    min-height:220px;
+    overflow:hidden;
+    position:relative;
+    z-index:1;
+  }
 
-/* лёгкая “рваная кромка” у карточек */
-.pp-card:before{
-  content:"";
-  position:absolute; inset:0;
-  background:
-    radial-gradient(12px 10px at 10% 0%, rgba(255,255,255,.12), transparent 65%),
-    radial-gradient(14px 10px at 55% 0%, rgba(255,255,255,.10), transparent 65%),
-    radial-gradient(10px 10px at 90% 0%, rgba(255,255,255,.10), transparent 65%);
-  opacity:.18;
-  pointer-events:none;
-}
+  .pp-card:before{
+    content:"";
+    position:absolute; inset:0;
+    background:
+      radial-gradient(12px 10px at 10% 0%, rgba(255,255,255,.12), transparent 65%),
+      radial-gradient(14px 10px at 55% 0%, rgba(255,255,255,.10), transparent 65%),
+      radial-gradient(10px 10px at 90% 0%, rgba(255,255,255,.10), transparent 65%);
+    opacity:.18;
+    pointer-events:none;
+  }
 
-.pp-card-h{
-  font-weight:800;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-  font-size:12px;
-  color:#caa6ff; /* фиолетовый акцент как на скрине */
-  margin-bottom:10px;
-  text-shadow:0 1px 0 rgba(0,0,0,.4);
-}
+  .pp-card-h{
+    font-weight:800;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    font-size:12px;
+    color:#caa6ff;
+    margin-bottom:10px;
+    text-shadow:0 1px 0 rgba(0,0,0,.4);
+  }
 
-.pp-center{
-  border-radius:16px;
-  overflow:hidden;
-  border:1px solid rgba(210,140,70,.22); /* “ржавый” акцент */
-  box-shadow:
-    0 0 0 1px rgba(0,0,0,.35) inset,
-    0 14px 30px rgba(0,0,0,.40),
-    0 0 26px rgba(210,140,70,.12);
-  background:rgba(0,0,0,.35);
-  min-height:220px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
+  .pp-center{
+    border-radius:16px;
+    overflow:hidden;
+    border:1px solid rgba(210,140,70,.22);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.35) inset,
+      0 14px 30px rgba(0,0,0,.40),
+      0 0 26px rgba(210,140,70,.12);
+    background:rgba(0,0,0,.35);
+    min-height:220px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position:relative;
+    z-index:1;
+  }
 
-.pp-center-img{
-  width:100%;
-  height:620px;
-  object-fit:contain;
-  display:block;
-  padding:10px;
-  filter: drop-shadow(0 0 14px rgba(180,150,220,.18));
-}
+  .pp-center-img{
+    width:100%;
+    height:620px;
+    object-fit:contain;
+    display:block;
+    padding:10px;
+    filter: drop-shadow(0 0 14px rgba(180,150,220,.18));
+  }
 
-.pp-toplist{display:flex;flex-direction:column;gap:8px}
+  .pp-toplist{display:flex;flex-direction:column;gap:8px}
 
-.pp-toprow{
-  display:grid;
-  grid-template-columns: 26px 1fr auto;
-  gap:10px;
-  align-items:center;
-  padding:8px 10px;
-  border-radius:12px;
-  background:rgba(0,0,0,.32);
-  border:1px solid rgba(170,160,210,.12);
-}
+  .pp-toprow{
+    display:grid;
+    grid-template-columns: 26px 1fr auto;
+    gap:10px;
+    align-items:center;
+    padding:8px 10px;
+    border-radius:12px;
+    background:rgba(0,0,0,.32);
+    border:1px solid rgba(170,160,210,.12);
+  }
 
-.pp-rank{
-  width:26px;height:26px;border-radius:10px;
-  display:flex;align-items:center;justify-content:center;
-  background:rgba(202,166,255,.12);
-  border:1px solid rgba(202,166,255,.22);
-  color:#e9d8ff;
-  font-weight:900;font-size:12px;
-}
+  .pp-rank{
+    width:26px;height:26px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(202,166,255,.12);
+    border:1px solid rgba(202,166,255,.22);
+    color:#e9d8ff;
+    font-weight:900;font-size:12px;
+  }
 
-.pp-name{
-  font-weight:700;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
+  .pp-name{
+    font-weight:700;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
 
-.pp-score{
-  font-weight:900;
-  color:#d89a55; /* тёплый акцент */
-}
+  .pp-score{
+    font-weight:900;
+    color:#d89a55;
+  }
 
-/* log */
-.pp-log{
-  max-height:620px;
-  overflow:auto;
-  padding-right:4px;
-  scrollbar-width:thin;
-  scrollbar-color: rgba(202,166,255,.55) transparent;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
+  /* log */
+  .pp-log{
+    max-height:620px;
+    overflow:auto;
+    padding-right:4px;
+    scrollbar-width:thin;
+    scrollbar-color: rgba(202,166,255,.55) transparent;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
 
-.pp-logrow{
-  padding:8px 10px;
-  border-radius:12px;
-  background:rgba(0,0,0,.30);
-  border:1px solid rgba(170,160,210,.12);
-  line-height:1.25;
-  font-size:12px;
-  color:#d6d1dc;
-}
-.pp-logrow b{color:#e9d8ff}
-.pp-logtime{color:#9c93a8;font-size:11px;margin-bottom:3px}
+  .pp-logrow{
+    padding:8px 10px;
+    border-radius:12px;
+    background:rgba(0,0,0,.30);
+    border:1px solid rgba(170,160,210,.12);
+    line-height:1.25;
+    font-size:12px;
+    color:#d6d1dc;
+  }
+  .pp-logrow b{color:#e9d8ff}
+  .pp-logtime{color:#9c93a8;font-size:11px;margin-bottom:3px}
 
-/* +0/+1/+2 */
-.pp-add{
-  margin-left:6px;
-  font-weight:900;
-  padding:1px 6px;
-  border-radius:999px;
-  border:1px solid rgba(170,160,210,.22);
-  background:rgba(0,0,0,.28);
-}
-.pp-add.pp-add0{ color:#b7b0c2; border-color:rgba(170,160,210,.14); }
-.pp-add.pp-add1{ color:#d89a55; border-color:rgba(216,154,85,.22); }
-.pp-add.pp-add2{ color:#caa6ff; border-color:rgba(202,166,255,.26); }
+  .pp-add{
+    margin-left:6px;
+    font-weight:900;
+    padding:1px 6px;
+    border-radius:999px;
+    border:1px solid rgba(170,160,210,.22);
+    background:rgba(0,0,0,.28);
+  }
+  .pp-add.pp-add0{ color:#b7b0c2; border-color:rgba(170,160,210,.14); }
+  .pp-add.pp-add1{ color:#d89a55; border-color:rgba(216,154,85,.22); }
+  .pp-add.pp-add2{ color:#caa6ff; border-color:rgba(202,166,255,.26); }
 
-/* bars */
-.pp-title{
-  font-weight:900;letter-spacing:1px;margin:6px 0 10px;
-  color:#caa6ff;text-align:center;
-  position:relative;
-  z-index:1;
-}
+  /* bars */
+  .pp-title{
+    font-weight:900;letter-spacing:1px;margin:6px 0 10px;
+    color:#caa6ff;text-align:center;
+    position:relative;
+    z-index:1;
+  }
 
-.pp-row{
-  display:grid;grid-template-columns:160px 1fr 120px;gap:12px;
-  align-items:center;margin:10px 0;
-  position:relative;
-  z-index:1;
-}
+  .pp-row{
+    display:grid;grid-template-columns:160px 1fr 120px;gap:12px;
+    align-items:center;margin:10px 0;
+    position:relative;
+    z-index:1;
+  }
 
-.pp-total{margin-top:14px;padding-top:12px;border-top:1px solid rgba(170,160,210,.18)}
-.pp-label{font-size:13px;color:#ddd}
-.pp-num{font-size:12px;color:#b7b0c2;text-align:right}
-.pp-bar{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-.pp-fill{
-  height:100%;width:0%;
-  background:linear-gradient(90deg,#caa6ff,#d89a55);
-  transition:width .35s ease
-}
+  .pp-total{margin-top:14px;padding-top:12px;border-top:1px solid rgba(170,160,210,.18)}
+  .pp-label{font-size:13px;color:#ddd}
+  .pp-num{font-size:12px;color:#b7b0c2;text-align:right}
+  .pp-bar{height:12px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+  .pp-fill{
+    height:100%;width:0%;
+    background:linear-gradient(90deg,#caa6ff,#d89a55);
+    transition:width .35s ease
+  }
 
-.pp-upd{margin-top:8px;font-size:12px;color:#a59db3;text-align:center;position:relative;z-index:1}
-.pp-empty{color:#9c93a8;font-size:12px;padding:8px 4px}
+  .pp-upd{margin-top:8px;font-size:12px;color:#a59db3;text-align:center;position:relative;z-index:1}
+  .pp-empty{color:#9c93a8;font-size:12px;padding:8px 4px}
 
-@media (max-width:700px){
-  .pp-topgrid{grid-template-columns:1fr; }
-  .pp-center-img{height:200px}
-  .pp-card{min-height:auto}
-}
-@media (max-width:650px){
-  .pp-row{grid-template-columns:1fr;gap:6px}
-  .pp-num{text-align:left}
-}
+  @media (max-width:700px){
+    .pp-topgrid{grid-template-columns:1fr; }
+    .pp-center-img{height:200px}
+    .pp-card{min-height:auto}
+  }
+  @media (max-width:650px){
+    .pp-row{grid-template-columns:1fr;gap:6px}
+    .pp-num{text-align:left}
+  }
 
+  .pp-done{
+    padding:10px 12px;
+    border-radius:12px;
+    font-weight:900;
+    letter-spacing:.04em;
+    background:linear-gradient(90deg, rgba(40,255,120,.18), rgba(40,255,120,.10));
+    border:1px solid rgba(40,255,120,.55);
+    color:#bfffd7;
+    text-align:center;
+    box-shadow:0 0 12px rgba(40,255,120,.25) inset;
+  }
 </style>
 
 <script>
 (function(){
+  const LOCAL_LAST_KEY = "pulse_ril_local_last_v1"; // то, что кладёт parent
+  let refreshTimer = null;
+  let inFlight = false;
+
   const send = () => {
     const requestId = Math.random().toString(16).slice(2);
     window.top.postMessage({ _pulseProgress:true, type:"progressRequest", requestId }, "*");
@@ -275,9 +295,19 @@
 
   function fmtDate(ts){
     const d = new Date(ts);
-    // "число месяц год и время"
-    // для русской локали обычно красиво:
     return d.toLocaleString("ru-RU", { day:"2-digit", month:"long", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  }
+
+  function getLocalLast(){
+    try {
+      const raw = sessionStorage.getItem(LOCAL_LAST_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      if (!o || !o.ts) return null;
+      // показываем максимум 25 секунд
+      if (Date.now() - Number(o.ts) > 25000) return null;
+      return o;
+    } catch(e){ return null; }
   }
 
   function renderTop(top){
@@ -299,60 +329,111 @@
     }).join("");
   }
 
-  function renderLog(logs){
+  function renderLog(logs, serverLast){
     const el = document.getElementById("ppLog");
+    const local = getLocalLast();
+
+    // если есть локальный клик и он НЕ совпал с последним серверным (ещё не записалось) — покажем “ожидание”
+    let localRow = "";
+    if (local){
+      const sEid = String(serverLast?.eid || "");
+      if (!sEid || sEid !== String(local.eid || "")){
+        localRow = `
+          <div class="pp-logrow" style="border-color:rgba(216,154,85,.35);">
+            <div class="pp-logtime">${fmtDate(local.ts)}</div>
+            <div><b>${String(local.player||"—")}</b> приносит: <b>${String(local.item||"—")}</b>
+              <span class="pp-add pp-add1">⏳</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
     if (!Array.isArray(logs) || !logs.length){
-      el.innerHTML = '<div class="pp-empty">Журнал пуст</div>';
+      el.innerHTML = localRow || '<div class="pp-empty">Журнал пуст</div>';
       return;
     }
-    el.innerHTML = logs.slice(0,35).map(l => {
+
+    const body = logs.slice(0,35).map(l => {
       const ts = Number(l.ts || 0);
       const when = ts ? fmtDate(ts) : "—";
       const player = String(l.player || "—");
       const item = String(l.item || "—");
-const add = Number(l.add ?? 1); // старые записи могут быть без add
-const cls = add === 2 ? "pp-add2" : (add === 1 ? "pp-add1" : "pp-add0");
+      const add = Number(l.add || 0);
+      const cls = add === 2 ? "pp-add2" : (add === 1 ? "pp-add1" : "pp-add0");
 
-return `
-  <div class="pp-logrow">
-    <div class="pp-logtime">${when}</div>
-    <div>
-      <b>${player}</b> приносит: <b>${item}</b>
-      <span class="pp-add ${cls}">+${add}</span>
-    </div>
-  </div>
-`;
-
-
+      return `
+        <div class="pp-logrow">
+          <div class="pp-logtime">${when}</div>
+          <div>
+            <b>${player}</b> приносит: <b>${item}</b>
+            ${add > 0 ? `<span class="pp-add ${cls}">+${add}</span>` : ``}
+          </div>
+        </div>
+      `;
     }).join("");
+
+    el.innerHTML = localRow + body;
   }
 
-function applyBars(snap){
-  if (!snap) return;
+  function applyBars(snap){
+    if (!snap) return;
+    document.getElementById("pp3").style.width = (snap.p || 0) + "%";
+    document.getElementById("pp3t").textContent = `${snap.points} / ${snap.target}`;
+    const d = snap.updatedAt ? new Date(snap.updatedAt) : null;
+    document.getElementById("ppUpd").textContent = d ? ("Обновлено: " + d.toLocaleString("ru-RU")) : "Обновление…";
+  }
 
-  document.getElementById("pp3").style.width = (snap.p || 0) + "%";
-  document.getElementById("pp3t").textContent = `${snap.points} / ${snap.target}`;
-
-  const d = snap.updatedAt ? new Date(snap.updatedAt) : null;
-  document.getElementById("ppUpd").textContent = d ? ("Обновлено: " + d.toLocaleString("ru-RU")) : "Обновление…";
-}
-
+  function renderDoneBanner(done){
+    const logWrap = document.getElementById("ppLog");
+    if (!logWrap) return;
+    const old = logWrap.querySelector(".pp-done");
+    if (old) old.remove();
+    if (done){
+      const div = document.createElement("div");
+      div.className = "pp-done";
+      div.textContent = " Постройка завершена!";
+      logWrap.prepend(div);
+    }
+  }
 
   function applyAll(snap){
     applyBars(snap);
     renderTop(snap.topPlayers || []);
-    renderLog(snap.logs || []);
+    renderLog(snap.logs || [], snap.last || null);
+    renderDoneBanner(!!snap.completed);
   }
 
   async function tick(){
-    const res = await send();
-    if (res && res.success && res.snapshot) applyAll(res.snapshot);
+    if (inFlight) return;
+    inFlight = true;
+    try{
+      const res = await send();
+      if (res && res.success && res.snapshot) applyAll(res.snapshot);
+    } finally {
+      inFlight = false;
+    }
   }
 
+  function scheduleTickFast(){
+    // debounce: если прилетело 10 forceRefresh подряд — делаем один запрос
+    if (refreshTimer) return;
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
+      tick();
+    }, 250);
+  }
+
+  window.addEventListener("message", function(e) {
+    if (e.data?._pulseProgress && e.data.type === "forceRefresh") {
+      scheduleTickFast();
+    }
+  });
+
   tick();
-  setInterval(tick, 15000);
+  setInterval(tick, 8000); // было 15000 — сделаем быстрее, меньше “непоняток”
 })();
 </script>
-[/html]
 
+[/html]
 [hideprofile]
