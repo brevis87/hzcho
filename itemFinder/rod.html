@@ -1,3 +1,5 @@
+как мне исправить скрипт, чтобы в журнал, шкалу и топ добавлялись значения только если предмет действительно получен игроком? 
+
 
 
 <!-- ======= PULSE MONUMENT PARENT (HTML-низ) — v12.4 SERVER EID RING ======= -->
@@ -16,19 +18,17 @@
   const PROG_KEY = "pulse_ril_progress_v1";
 
   // ====== НАСТРОЙКИ ======
-  const TARGET_TOTAL = 45;    // ЗНАЧЕНИЕ ШКАЛЫ
+  const TARGET_TOTAL = 100;    // ЗНАЧЕНИЕ ШКАЛЫ
 
-  const ALLOWED_ITEMS = new Set([
-    "Кирпич","Булыжник","Плита из бетона","Обломок колонны",
-    "то что не идет в зачет", "то, что не идет в зачет"
+  const ALLOWED_ITEMS = new Set([   
+    "Арматура","Булыжник","Кабель подсветки","Кирпич","Крепежные скобы","Стальная пластина","Обломок колонны","Бетонная плита","Ржавая балка","Фрагмент знамени","Болты","Гипсовый раствор","Осколок эмблемы","Блок питания","Светодиод","Цемент","Веревка","Стекло","Светодиодные буквы","Набор мастера"
   ]);
 
-  const DOUBLE_ITEMS = new Set([ "Плита из бетона","Обломок колонны" ]);
+  const DOUBLE_ITEMS = new Set([      
+     "Болты","Гипсовый раствор","Осколок эмблемы","Блок питания","Светодиод","Цемент" ]);  
 
-  const LOG_ONLY_ITEMS = new Set([
-    "то что не идет в зачет",
-    "то, что не идет в зачет",
-    "Твой предмет 2"
+  const LOG_ONLY_ITEMS = new Set([    
+    "Веревка","Стекло","Светодиодные буквы","Набор мастера"
   ]);
 
   function pointsForItem(name){
@@ -121,12 +121,22 @@
     };
   }
 
-  async function progGet() {
-    const got = await storageGetRaw(PROG_KEY);
-    if (got.ok && got.missing) return normalizeState({ v:4, points:0, updatedAt:0, players:{}, logs:[], eidRing:[] });
-    if (!got.ok) return normalizeState({ v:4, points:0, updatedAt:0, players:{}, logs:[], eidRing:[] });
-    return normalizeState(safeJsonParse(got.raw));
+async function progGet() {
+  const got = await storageGetRaw(PROG_KEY);
+
+  // ✅ ключ реально отсутствует → стартуем с нуля
+  if (got.ok && got.missing) {
+    return normalizeState({ v:4, points:0, updatedAt:0, players:{}, logs:[], eidRing:[] });
   }
+
+  // ❌ ошибка чтения (503/таймаут/ошибка API) → НЕ возвращаем 0, а сигналим ошибку
+  if (!got.ok) {
+    return null; // важно!
+  }
+
+  return normalizeState(safeJsonParse(got.raw));
+}
+
 
   function buildTopPlayers(playersObj, limit){
     const arr = Object.entries(playersObj || {}).map(([name, data]) => ({
@@ -152,21 +162,36 @@
     const data = event.data;
     if (!data?._pulseProgress || data.type !== "progressRequest") return;
     try {
-      const st = await progGet();
-      event.source.postMessage({
-        _pulseProgress: true,
-        type: "progressResponse",
-        requestId: data.requestId,
-        data: { success:true, snapshot: snapshotFrom(st) }
-      }, event.origin);
-    } catch (e) {
-      event.source.postMessage({
-        _pulseProgress: true,
-        type: "progressResponse",
-        requestId: data.requestId,
-        data: { success:false, error: e.message }
-      }, event.origin);
-    }
+
+
+if (!event.source || !event.source.postMessage) return;
+  const st = await progGet();
+
+  if (!st) {
+    event.source.postMessage({
+      _pulseProgress: true,
+      type: "progressResponse",
+      requestId: data.requestId,
+      data: { success:false, error:"storage_get_failed" }
+    }, event.origin);
+    return;
+  }
+
+  event.source.postMessage({
+    _pulseProgress: true,
+    type: "progressResponse",
+    requestId: data.requestId,
+    data: { success:true, snapshot: snapshotFrom(st) }
+  }, event.origin);
+} catch (e) {
+  event.source.postMessage({
+    _pulseProgress: true,
+    type: "progressResponse",
+    requestId: data.requestId,
+    data: { success:false, error: e.message }
+  }, event.origin);
+}
+
   });
 
   // ---- applied ring (local) ----
@@ -261,12 +286,19 @@
     for (let attempt = 1; attempt <= 3; attempt++){
       const st = await progGet();
 
-      // ✅ главный стоп-кран: если eid уже был — это повтор/ретрай → НЕ добавляем лог
-      if (eid && st.eidRing && st.eidRing.includes(eid)) {
-        return { ok:true, why:"already_in_eidRing" };
-      }
+if (!st) {
+  await new Promise(r => setTimeout(r, 400 * attempt));
+  continue;
+}
 
-      if (Number(st.points || 0) >= TARGET_TOTAL) return { ok:false, why:"completed" };
+// ✅ вернуть!
+if (eid && st.eidRing && st.eidRing.includes(eid)) {
+  return { ok:true, why:"already_in_eidRing" };
+}
+
+
+
+     if (Number(st.points || 0) >= TARGET_TOTAL) return { ok:false, why:"completed" };
 
       const base = Number(st.points || 0);
       const next = Math.min(TARGET_TOTAL, base + add);
@@ -312,7 +344,12 @@
 
       // верификация
       const ver = await progGet();
-      if (eid && ver.eidRing && ver.eidRing.includes(eid)) return { ok:true, add };
+if (!ver) { await new Promise(r=>setTimeout(r, 250*attempt)); continue; }
+
+// ✅ вернуть!
+if (eid && ver.eidRing && ver.eidRing.includes(eid)) return { ok:true, add };
+
+
       if (!eid) {
         // fallback: как раньше
         if (add === 0) {
