@@ -1,4 +1,4 @@
-<!--------------рандом выпадение предметов-------------->
+<!-------------- START рандом выпадение предметов (настройка) -------------->
 <script>
 
 const ril_TMPL = {
@@ -16,44 +16,31 @@ const ril_TMPL = {
         </div>
     `,
             
-            // Инвентарь (BB)
-    	INVENTORY: `
+	// Инвентарь (BB)
+    INVENTORY: `
 [b]Инвентарь пользователя[/b]
 [html]
-<style>
-	.usr_inv {display: grid;gap: 10px;margin-top: 10px;grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));}
-	.inv_item {background: ;border: 1px solid #ddd;border-radius: 4px;padding: 10px;text-align: center;}
-	.item-image {width: 64px;height: 64px;object-fit: cover;border-radius: 4px;}
-	.item-description {display: none;}
-	#detailed-view-{{uniq}}:checked ~ .usr_inv {grid-template-columns: 1fr;}
-	#detailed-view-{{uniq}}:checked ~ .usr_inv .inv_item {display: flex;align-items: center;text-align: left;gap: 15px;padding: 15px;}
-	#detailed-view-{{uniq}}:checked ~ .usr_inv .item-image {width: 50px;height: 50px;flex-shrink: 0;}
-	#detailed-view-{{uniq}}:checked ~ .usr_inv .item-description {display: block;flex: 1;}
-</style>
-
-<div>
-
-	<div class="usr_inv">
+<style>.usr_inv {display: grid;gap: 10px;margin-top: 10px;grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));}.inv_item {background: ;border: 1px solid #ddd;border-radius: 4px;padding: 10px;text-align: center;}.item-image {width: 64px;height: 64px;object-fit: cover;border-radius: 4px;}</style>
+<div class="usr_inv">
     {{items}}
-	</div>
 </div>
 [/html]
 [b]Последнее обновление:[/b] {{currentTime}}
-    	`,
+    `,
             
-            // Карточка в инвентаре (HTML)
-    	IMAGE_IN_INVENTORY: `
-        <div class="inv_item">
-        	<img src="{{src}}" title="{{name}}" alt="{{name}}" class="item-image">
+	// Карточка в инвентаре (HTML)
+	IMAGE_IN_INVENTORY: `
+	<div class="inv_item"><img src="{{src}}" title="{{name}}" alt="{{name}}" class="item-image" data-finded="{{foundTime}}" data-sec="{{sec}}"></div>
+	`,
+	
+	ALERTS: {
+		SUCCESS: `Ты подобрал материал "{{itemName}}"`,
+		TOO_EARLY: `Стоило вам на миг отвернуться, и предмет исчез так, будто его никогда не было здесь.`, // таймаут не прошёл
+		ERROR: `Ошибка при добавлении предмета`
+	},
 
-        </div>
-    	`,
-    	ALERTS: {
-        SUCCESS: `Ты подобрал материал "{{itemName}}"`,
-        TOO_EARLY: `Стоило вам на миг отвернуться, и предмет исчез так, будто его никогда не было здесь.`, // таймаут не прошёл
-        ERROR: `Ошибка при добавлении предмета`
-    	}
-        };
+    USE_SEC_IN_IMG: false
+};
     
 // Использование
 $(document).ready(function() {
@@ -75,7 +62,6 @@ const ril_ALLOWED = [1, 2, 6]; // Группы, которые имеют пра
 	}
 	
 	if(window.location.href.indexOf("viewtopic") > -1 || window.location.href.indexOf("edit.php") > -1) {
-
 
 
     const imageLoader = new RandomImageLoader(
@@ -114,8 +100,8 @@ const ril_ALLOWED = [1, 2, 6]; // Группы, которые имеют пра
 /* 2. Применяем анимацию к классу glow-image */
 .glow-image {
   /* Применяем анимацию: 2 секунды, бесконечно, туда-обратно */
-  animation: pulse-contour-glow 2s infinite alternate; 
-  /* Важно: filter: drop-shadow() заменил box-shadow */
+  animation: pulse-contour-glow 2s infinite alternate;
 }
 </style>
 <script src="https://forumstatic.ru/files/001c/52/b6/39259.js"></script>
+<!-------------- END рандом выпадение предметов (настройка) -------------->
