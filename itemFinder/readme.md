@@ -5,3 +5,5 @@
 
 
 Это в первый пост: https://github.com/brevis87/hzcho/blob/main/itemFinder/post_start.html 
+
+Код проверки начисленных предметов: https://github.com/brevis87/hzcho/itemFinder/page_checkItems.html

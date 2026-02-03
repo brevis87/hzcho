@@ -1,0 +1,568 @@
+<div id="invChecker">
+    <style>
+        #invChecker .inventory-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-family: Arial, sans-serif;
+        }
+        #invChecker .inventory-table th,
+        #invChecker .inventory-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        #invChecker .inventory-table th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+        }
+        #invChecker .inventory-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        #invChecker .inventory-table tr:hover {
+            background-color: #f5f5f5;
+        }
+       #invChecker .warning {
+            color: #d63031;
+            font-weight: bold;
+        }
+       #invChecker  .html-preview {
+            max-width: 200px;
+            max-height: 100px;
+            overflow: auto;
+        }
+        #invChecker .decoded-data {
+            font-family: monospace;
+            font-size: 12px;
+        }
+        #invChecker .loading {
+            padding: 20px;
+            text-align: center;
+            font-size: 18px;
+        }
+        #invChecker .error {
+            color: #d63031;
+            padding: 10px;
+            background-color: #ffeaa7;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        #invChecker .controls {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        #invChecker button {
+            padding: 10px 20px;
+            background-color: #74b9ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #invChecker button:hover {
+            background-color: #0984e3;
+        }
+        #invChecker button:disabled {
+            background-color: #b2bec3;
+            cursor: not-allowed;
+        }
+    </style>
+	
+    <div class="controls">
+        <h1>Анализатор инвентаря форума</h1>
+        <label for="topicId">ID темы:</label>
+        <input type="number" id="topicId" placeholder="Введите ID темы" value="33">
+        <button onclick="startAnalysis()">Запустить анализ</button>
+        <div id="status"></div>
+    </div>
+    <div id="results"></div>
+
+    <script>
+	
+	
+class ForumInventoryParser {
+    constructor() {
+        this.inventoryTopicId = null;
+        this.processedSecurityParams = new Map();
+        this.allPosts = [];
+    }
+
+    // API вызов
+    async apiCall(method, params = {}) {
+        try {
+            const urlParams = new URLSearchParams({
+                method: method,
+                ...params
+            });
+            
+            const url = `/api.php?${urlParams.toString()}`;
+            const response = await fetch(url, {
+                method: 'POST'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            return await response.json();
+        } catch (error) {
+            console.error(`Ошибка при вызове API ${method}:`, error);
+            throw error;
+        }
+    }
+
+    // Метод для получения всех сообщений темы
+    async getAllPosts() {
+        let allPosts = [];
+        let skip = 0;
+        const limit = 100;
+        let hasMore = true;
+
+        console.log('Начинаем сбор сообщений...');
+
+        while (hasMore) {
+            try {
+                const response = await this.apiCall('post.get', {
+                    topic_id: this.inventoryTopicId,
+                    fields: 'id,user_id,username,message',
+                    limit: limit,
+                    skip: skip
+                });
+
+                if (response?.response && response.response.length > 0) {
+                    allPosts = allPosts.concat(response.response);
+                    console.log(`Получено ${response.response.length} сообщений, всего: ${allPosts.length}`);
+                    
+                    if (response.response.length < limit) {
+                        hasMore = false;
+                        console.log('Получены все сообщения');
+                    } else {
+                        skip += limit;
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                } else {
+                    hasMore = false;
+                    console.log('Нет больше сообщений');
+                }
+            } catch (error) {
+                console.error('Ошибка при получении постов:', error);
+                hasMore = false;
+            }
+        }
+
+        return allPosts;
+    }
+
+    // Декодирование HTML entities
+    decodeHtmlEntities(html) {
+        const textArea = document.createElement('textarea');
+        textArea.innerHTML = html;
+        return textArea.value;
+    }
+
+    // Декодирование security параметра
+	decodeSecurityParam(secParam) {
+		try {
+			// Используем ТУ ЖЕ САМУЮ соль, что и при шифровании
+			const salt = window.origin || '';
+			
+			// Декодируем из base64 и расшифровываем с помощью соли
+			const encryptedData = atob(secParam);
+			const decryptedBase64 = this.decryptWithSalt(encryptedData, salt);
+			
+			// Теперь декодируем оригинальный base64
+			const decodedString = decodeURIComponent(escape(atob(decryptedBase64)));
+			return JSON.parse(decodedString);
+			
+		} catch (error) {
+			console.error('Ошибка декодирования security параметра:', error);
+			return null;
+		}
+	}
+
+	// Расшифровка строки с помощью соли (этот метод правильный)
+	decryptWithSalt(encryptedData, salt) {
+		let result = '';
+		for (let i = 0; i < encryptedData.length; i++) {
+			const encryptedChar = encryptedData.charCodeAt(i);
+			const saltChar = salt.charCodeAt(i % salt.length);
+			const decryptedChar = encryptedChar ^ saltChar; // XOR расшифровка
+			result += String.fromCharCode(decryptedChar);
+		}
+		return result;
+	}
+
+    // Парсинг HTML и извлечение картинок с security параметрами
+    // В методе parseInventoryItems замените блок кода на следующий:
+parseInventoryItems(html) {
+    const decodedHtml = this.decodeHtmlEntities(html);
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(decodedHtml, 'text/html');
+    const inventoryItems = [];
+    
+    // Ищем все контейнеры с классом inv_item
+    const invContainers = doc.querySelectorAll('div.inv_item');
+    
+    console.log(`Найдено ${invContainers.length} контейнеров с классом inv_item`);
+    
+    invContainers.forEach((container, index) => {
+        // В каждом контейнере ищем картинку
+        const img = container.querySelector('img');
+        
+        if (img) {
+            const src = img.getAttribute('src') || '';
+            console.log(`Картинка ${index + 1}:`, src.substring(0, 100) + '...');
+            
+            // 1. Сначала проверяем старый формат - параметр sec в URL
+            const secParamFromUrl = src.match(/[?&]sec=([^&]+)/);
+            
+            // 2. Проверяем новый формат - атрибут data-sec
+            const secParamFromData = img.getAttribute('data-sec');
+            
+            let securityParam = null;
+            let source = 'unknown';
+            
+            if (secParamFromUrl && secParamFromUrl[1]) {
+                securityParam = secParamFromUrl[1];
+                source = 'url';
+            } else if (secParamFromData) {
+                securityParam = secParamFromData;
+                source = 'data-sec';
+            }
+            
+            if (securityParam) {
+                console.log(`Найден security параметр (источник: ${source}): ${securityParam.substring(0, 50)}...`);
+                
+                // Проверяем время в data-finded
+                const findedTime = img.getAttribute('data-finded') || '';
+                const isUtcFormat = findedTime.includes('GMT') || /^[A-Za-z]{3},/.test(findedTime);
+                
+                inventoryItems.push({
+                    element: container.outerHTML,
+                    securityParam: securityParam,
+                    decodedData: this.decodeSecurityParam(securityParam),
+                    src: src,
+                    dataSec: secParamFromData,
+                    dataFinded: findedTime,
+                    isUtcFormat: isUtcFormat,
+                    paramSource: source
+                });
+            } else {
+                console.log('Security параметр не найден ни в URL, ни в data-sec');
+                inventoryItems.push({
+                    element: container.outerHTML,
+                    securityParam: null,
+                    decodedData: null,
+                    noSecParam: true,
+                    src: src,
+                    dataSec: secParamFromData,
+                    dataFinded: img.getAttribute('data-finded') || '',
+                    paramSource: 'none'
+                });
+            }
+        } else {
+            console.log(`В контейнере ${index + 1} не найдена картинка`);
+        }
+    });
+    
+    return inventoryItems;
+}
+
+// Добавьте в метод checkWarnings дополнительную проверку:
+checkWarnings(item, post, allSecurityParams) {
+    const warnings = [];
+    
+    if (item.noSecParam) {
+        warnings.push('Не найден security параметр (sec)');
+        return warnings;
+    }
+    
+    if (!item.decodedData) {
+        warnings.push('Не удалось декодировать security параметр или проверка целостности не пройдена');
+        return warnings;
+    }
+
+    // Проверка совпадения ID автора
+    if (parseInt(item.decodedData.uid) !== parseInt(post.user_id)) {
+        warnings.push(`ID автора не совпадает: ${item.decodedData.uid} vs ${post.user_id}`);
+    }
+
+    // Проверка совпадения username
+    if (item.decodedData.u !== post.username) {
+        warnings.push(`Username не совпадает: "${item.decodedData.u}" vs "${post.username}"`);
+    }
+
+    // Проверка на дубликаты security параметра
+    const existingEntries = allSecurityParams.get(item.securityParam);
+    if (existingEntries && existingEntries.length > 1) {
+        const isOwner = parseInt(item.decodedData.uid) === parseInt(post.user_id);
+        
+        if (isOwner) {
+            // Если текущий пользователь - владелец картинки
+            const otherEntries = existingEntries.filter(entry => 
+                entry.userId !== post.user_id // Ищем использования другими пользователями
+            );
+            
+            if (!otherEntries.length > 0) {
+                // Дубликаты только у владельца - проверяем количество
+                const ownerEntries = existingEntries.filter(entry => 
+                    entry.userId === post.user_id
+                );
+                if (ownerEntries.length > 1) {
+                    warnings.push(`Дубликат: эта карточка встречается ${ownerEntries.length} раз в постах`);
+                }
+            }
+        } else {
+            // Если текущий пользователь НЕ владелец картинки
+            warnings.push(`Дубликат: ЧУЖАЯ карточка (владелец: ${item.decodedData.u})`);
+        }
+    }
+
+    // Проверка наличия currentTime в HTML карточки
+    if (item.decodedData.t) {
+        const timeString = item.decodedData.t.toString();
+        
+        // Проверяем как в data-finded, так и в самом HTML
+        const hasTimeInDataFinded = item.dataFinded && item.dataFinded.includes(timeString);
+        const hasTimeInHtml = item.element.includes(timeString);
+        
+        if (!hasTimeInDataFinded && !hasTimeInHtml) {
+            warnings.push(`В карточке нет времени: ${timeString}`);
+        }
+    } else {
+        warnings.push('Отсутствует currentTime в security параметре');
+    }
+
+    // Проверка формата времени в data-finded
+    if (item.dataFinded && !item.isUtcFormat && !item.dataFinded.match(/\d{2}\.\d{2}\.\d{4}/)) {
+        warnings.push(`Некорректный формат времени в data-finded: ${item.dataFinded}`);
+    }
+
+    // Проверка источника параметра
+    if (item.paramSource === 'data-sec') {
+        //warnings.push('Используется новый формат (data-sec)');
+    }
+
+    return warnings;
+}
+
+    // Извлечение HTML блоков из сообщения
+    extractHtmlBlocks(message) {
+        const htmlBlocks = [];
+        const regex = /\[html\](.*?)\[\/html\]/gs;
+        let match;
+        
+        while ((match = regex.exec(message)) !== null) {
+            htmlBlocks.push(match[1]);
+        }
+        
+        console.log(`Извлечено ${htmlBlocks.length} HTML блоков из сообщения`);
+        return htmlBlocks;
+    }
+
+    // Основной метод для анализа всех постов
+    async analyzeInventory() {
+        console.log('Начинаем сбор всех сообщений темы...');
+        this.allPosts = await this.getAllPosts();
+        console.log(`Собрано ${this.allPosts.length} сообщений`);
+
+        const results = [];
+        this.processedSecurityParams.clear();
+
+        // Сначала собираем все security параметры для проверки дубликатов
+        this.allPosts.forEach(post => {
+            const htmlBlocks = this.extractHtmlBlocks(post.message);
+            console.log(`Пост ${post.id}: ${htmlBlocks.length} HTML блоков`);
+            
+            htmlBlocks.forEach((html, index) => {
+                console.log(`Блок ${index + 1} длиной ${html.length} символов`);
+                const items = this.parseInventoryItems(html);
+                console.log(`В блоке найдено ${items.length} инвентарных карточек`);
+                
+                // В analyzeInventory замени эту часть:
+				items.forEach(item => {
+					if (item.securityParam && item.decodedData) {
+						// Вместо set используем массив для хранения всех вхождений
+						if (!this.processedSecurityParams.has(item.securityParam)) {
+							this.processedSecurityParams.set(item.securityParam, []);
+						}
+						this.processedSecurityParams.get(item.securityParam).push({
+							userId: post.user_id,
+							username: post.username,
+							postId: post.id
+						});
+					}
+				});
+            });
+        });
+
+        // Теперь анализируем каждый пост
+        this.allPosts.forEach(post => {
+            const htmlBlocks = this.extractHtmlBlocks(post.message);
+            
+            htmlBlocks.forEach(html => {
+                const inventoryItems = this.parseInventoryItems(html);
+                console.log(`В посте ${post.id} найдено ${inventoryItems.length} инвентарных карточек`);
+                
+                inventoryItems.forEach(item => {
+                    const warnings = this.checkWarnings(item, post, this.processedSecurityParams);
+                    
+                    results.push({
+                        postId: post.id,
+                        userId: post.user_id,
+                        username: post.username,
+                        html: item.element,
+                        decodedData: item.decodedData,
+                        securityParam: item.securityParam,
+                        warnings: warnings,
+                        hasSecParam: !item.noSecParam,
+                        imageSrc: item.src,
+                        imgHtml: item.imgElement
+                    });
+                });
+            });
+        });
+
+        console.log(`Всего проанализировано ${results.length} карточек`);
+        return results;
+    }
+
+    // Отрисовка таблицы с результатами
+    renderTable(results) {
+    const resultsDiv = document.getElementById('results');
+    
+    const tableHtml = `
+        <h2>Результаты анализа инвентарных карточек</h2>
+        <p>Всего найдено: ${results.length} карточек</p>
+        <p>Форматы: ${results.filter(r => r.paramSource === 'url').length} старых (sec в URL), 
+                   ${results.filter(r => r.paramSource === 'data-sec').length} новых (data-sec)</p>
+        <table class="inventory-table">
+            <thead>
+                <tr>
+                    <th>Автор (ID)</th>
+                    <th>HTML карточки</th>
+                    <th>Расшифрованные данные</th>
+                    <th>Время (UTC)</th>
+                    <th>Предупреждения</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${results.map(item => `
+                    <tr>
+                        <td>
+                            <strong>${this.escapeHtml(item.username)}</strong><br>
+                            ID: ${item.userId}<br>
+                            Пост: ${item.postId}<br>
+                            Формат: ${item.paramSource}
+                        </td>
+                        <td class="html-preview">
+                            <div class="card-html">${item.html}</div>
+                            <details style="margin-top: 5px;">
+                                <summary>Детали</summary>
+                                <small>URL: ${this.escapeHtml(item.imageSrc)}</small><br>
+                                <small>data-finded: ${this.escapeHtml(item.dataFinded)}</small>
+                            </details>
+                        </td>
+                        <td class="decoded-data">
+                            ${item.hasSecParam ? 
+                                (item.decodedData ? `
+                                    User: ${this.escapeHtml(item.decodedData.u)}<br>
+                                    UserID: ${item.decodedData.uid}<br>
+                                    TopicID: ${item.decodedData.tid}<br>
+                                    Time: ${item.decodedData.t ? (
+                                        typeof item.decodedData.t === 'number' ? 
+                                            new Date(item.decodedData.t).toLocaleString() : 
+                                            item.decodedData.t
+                                    ) : 'N/A'}<br>
+                                    Источник: ${item.paramSource}
+                                ` : 'Ошибка декодирования') 
+                                : 'Security параметр отсутствует'
+                            }
+                        </td>
+                        <td>
+                            ${item.dataFinded ? `
+                                ${item.dataFinded}<br>
+                                ${item.isUtcFormat ? '✓ UTC формат' : '⚠ Не UTC'}
+                            ` : 'Нет данных'}
+                        </td>
+                        <td class="${item.warnings.length > 0 ? 'warning' : ''}">
+                            ${item.warnings.length > 0 ? 
+                                item.warnings.map(warning => `• ${this.escapeHtml(warning)}`).join('<br>') : 
+                                'Нет предупреждений'}
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    
+    resultsDiv.innerHTML = tableHtml;
+    return resultsDiv;
+}
+
+    // Вспомогательная функция для экранирования HTML
+    escapeHtml(unsafe) {
+        if (unsafe === null || unsafe === undefined) return '';
+        return unsafe
+            .toString()
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "'");
+    }
+
+    // Запуск полного анализа
+    async runAnalysis() {
+        try {
+            const results = await this.analyzeInventory();
+            this.renderTable(results);
+            console.log('Анализ завершен. Результаты отображены на странице.');
+            return results;
+        } catch (error) {
+            console.error('Ошибка при анализе:', error);
+            throw error;
+        }
+    }
+}
+	
+	</script>
+	
+	
+<script>
+        async function startAnalysis() {
+            const topicId = document.getElementById('topicId').value;
+            const statusDiv = document.getElementById('status');
+            const resultsDiv = document.getElementById('results');
+            
+            if (!topicId) {
+                statusDiv.innerHTML = '<div class="error">Пожалуйста, введите ID темы</div>';
+                return;
+            }
+
+            statusDiv.innerHTML = '<div class="loading">Загрузка данных...</div>';
+            resultsDiv.innerHTML = '';
+
+            try {
+                const parser = new ForumInventoryParser();
+                parser.inventoryTopicId = parseInt(topicId);
+                
+                const results = await parser.runAnalysis();
+                
+                if (results && results.length > 0) {
+                    statusDiv.innerHTML = `<div>Анализ завершен! Найдено ${results.length} карточек</div>`;
+                } else {
+                    statusDiv.innerHTML = '<div class="error">Карточки не найдены</div>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="error">Ошибка: ${error.message}</div>`;
+                console.error('Ошибка анализа:', error);
+            }
+        }
+    </script>
+</div>
