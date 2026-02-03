@@ -1,5 +1,4 @@
-[html]
-<div id="pulseProgressHeader" class="pp-wrap">
+[html]<div id="pulseProgressHeader" class="pp-wrap">
 
   <!-- ===== TOP / IMAGE / LOG ===== -->
   <div class="pp-topgrid">
@@ -271,146 +270,60 @@
   }
 </style>
 
+
+<div id="pulseProgressHeader" class="pp-wrap">
+  <!-- ... весь HTML код без изменений ... -->
+</div>
+
+<style>
+  /* ... все стили без изменений ... */
+</style>
+
 <script>
 (function(){
   
-  // Конфигурация
-  const INVENTORY_STAT_CONFIG = {
-    INVENTORY_TOPIC_ID: 2049, // Топик с постами
-    BASE_URL: window.location.origin,
-    POSTS_PER_REQUEST: 100,
-    API_CHUNK_SIZE: 50,
-    RELOAD: 8 * 1000 // 8 секунд в миллисекунды 
-  };
-
-const ALLOWED_ITEMS = new Set([
-  "Арматура", "Булыжник", "Кабель подсветки", "Кирпич", "Крепежные скобы", 
-  "Стальная пластина", "Обломок колонны", "Бетонная плита", "Ржавая балка", 
-  "Фрагмент знамени", "Болты", "Гипсовый раствор", "Осколок эмблемы", 
-  "Блок питания", "Светодиод", "Цемент", "Веревка", "Стекло", 
-  "Светодиодные буквы", "Набор мастера"
-]);
-
-const DOUBLE_ITEMS = new Set([
-  "Болты", "Гипсовый раствор", "Осколок эмблемы", "Блок питания", 
-  "Светодиод", "Цемент"
-]);
-
-const LOG_ONLY_ITEMS = new Set([
-  "Веревка", "Стекло", "Светодиодные буквы", "Набор мастера"
-]);
-
-// Функция подсчета очков
-function pointsForItem(name) {
-  name = String(name || "").trim();
-  if (LOG_ONLY_ITEMS.has(name)) return 0;
-  if (DOUBLE_ITEMS.has(name)) return 2;
-  return 1;
-}
-
-// метод для сбора данных
   const LOCAL_LAST_KEY = "pulse_ril_local_last_v1";
   let refreshTimer = null;
   let inFlight = false;
+  
+  // Конфигурация обновления (ЕДИНСТВЕННЫЙ источник)
+  const CONFIG = {
+    RELOAD_INTERVAL: 8 * 1000 // 8 секунд
+  };
 
+  // Функция для запроса данных у родителя
+  function send() {
+    const requestId = Math.random().toString(16).slice(2);
+    
+    // Отправляем запрос родителю
+    window.parent.postMessage({ 
+      _pulseProgress: true, 
+      type: "progressRequest", 
+      requestId: requestId 
+    }, "*");
 
-  // API вызов (наш метод)
-  async function apiCall(method, params = {}) {
-    try {
-      const urlParams = new URLSearchParams({
-        method: method,
-        ...params
-      });
-      
-      const url = `/api.php?${urlParams.toString()}`;
-      const response = await fetch(url, {
-        method: 'POST'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      return result.response || result;
-      
-    } catch (error) {
-      console.error(`Ошибка при вызове API ${method}:`, error);
-      throw error;
-    }
-  }
-
-  // Загрузка всех постов из топика инвентаря (наш метод)
-  async function getAllPostsInInventoryTopic() {
-    try {
-      let allPosts = [];
-      let skip = 0;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const postsResponse = await apiCall('post.get', {
-          topic_id: INVENTORY_STAT_CONFIG.INVENTORY_TOPIC_ID,
-          fields: 'id,message,posted,topic_id,user_id,username',
-          sort_by: 'id',
-          sort_dir: 'asc',
-          skip: skip,
-          limit: INVENTORY_STAT_CONFIG.POSTS_PER_REQUEST
-        });
-        
-        if (!postsResponse || postsResponse.length === 0) {
-          hasMore = false;
-          break;
+    return new Promise(resolve => {
+      const handler = (e) => {
+        if (e.data?._pulseProgress && 
+            e.data.type === "progressResponse" && 
+            e.data.requestId === requestId) {
+          window.removeEventListener("message", handler);
+          resolve(e.data.data);
         }
-        
-        const postsArray = Array.isArray(postsResponse) ? postsResponse : 
-                         (postsResponse.posts || postsResponse.response || []);
-        
-        allPosts.push(...postsArray);
-        skip += INVENTORY_STAT_CONFIG.POSTS_PER_REQUEST;
-        
-        if (postsArray.length < INVENTORY_STAT_CONFIG.POSTS_PER_REQUEST) {
-          hasMore = false;
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, INVENTORY_STAT_CONFIG.API_CHUNK_SIZE));
-      }
+      };
       
-      return allPosts;
+      window.addEventListener("message", handler);
       
-    } catch (error) {
-      console.error("Ошибка загрузки постов:", error);
-      throw error;
-    }
+      // Таймаут на случай, если родитель не ответит
+      setTimeout(() => {
+        window.removeEventListener("message", handler);
+        resolve(null);
+      }, 4500);
+    });
   }
 
-  // Декодирование HTML (наш метод)
-  function decodeHtmlEntities(text) {
-    const textarea = document.createElement('textarea');
-    textarea.innerHTML = text;
-    return textarea.value;
-  }
-
-  // Функция для парсинга даты UTC из data-finded
-  function parseUTCDate(dateString) {
-    try {
-      // Пытаемся распарсить как UTC дату
-      const date = new Date(dateString);
-      if (!isNaN(date.getTime())) {
-        return date.getTime(); // Возвращаем timestamp
-      }
-      
-      // Если не получилось, возвращаем текущее время
-      return Date.now();
-    } catch (error) {
-      console.warn('Ошибка парсинга UTC даты:', dateString, error);
-      return Date.now();
-    }
-  }
-
-  // Форматирование даты для вывода (в локальное время пользователя)
-  function formatLocalDate(timestamp) {
-    const date = new Date(timestamp);
-    // Формат: "02.02.2026, 23:09:05"
+  function fmtDate(ts){
+    const date = new Date(ts);
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
@@ -419,138 +332,6 @@ function pointsForItem(name) {
     const seconds = String(date.getSeconds()).padStart(2, '0');
     
     return `${day}.${month}.${year}, ${hours}:${minutes}:${seconds}`;
-  }
-
-  // Извлечение данных из постов (наш метод)
-  async function extractInventoryData() {
-    const posts = await getAllPostsInInventoryTopic();
-    const itemStats = new Map();
-    const playerStats = new Map();
-    const logs = [];
-    let totalPoints = 0;
-    
-    // Собираем данные по предметам и игрокам
-    for (const post of posts) {
-      if (!post.message || !post.message.includes('[html]')) continue;
-      
-      const htmlMatch = post.message.match(/\[html\]([\s\S]*?)\[\/html\]/i);
-      if (!htmlMatch || !htmlMatch[1]) continue;
-      
-      const decodedHtml = decodeHtmlEntities(htmlMatch[1]);
-      const username = post.username || "Неизвестно";
-      
-      // Ищем предметы с data-finded (формат UTC)
-      const itemRegex = /<img[^>]*src="[^"]*"[^>]*title="([^"]*)"[^>]*data-finded="([^"]*)"[^>]*>/gi;
-      let match;
-      
-      while ((match = itemRegex.exec(decodedHtml)) !== null) {
-        const title = match[1].trim();
-        const findedDateUTC = match[2].trim();
-        
-        if (!title || !findedDateUTC) continue;
-        
-        // Парсим UTC дату
-        const timestamp = parseUTCDate(findedDateUTC);
-        
-        // Подсчет предметов по типам
-        if (itemStats.has(title)) {
-          itemStats.set(title, itemStats.get(title) + 1);
-        } else {
-          itemStats.set(title, 1);
-        }
-        
-        // Подсчет очков для игрока (используем распределение из скрипта джуна)
-        const points = pointsForItem(title);
-        totalPoints += points;
-        
-        if (playerStats.has(username)) {
-          playerStats.set(username, playerStats.get(username) + points);
-        } else {
-          playerStats.set(username, points);
-        }
-        
-        // Добавляем в журнал
-        logs.push({
-          ts: timestamp,
-          player: username,
-          item: title,
-          add: points
-        });
-      }
-    }
-    
-    // Сортируем журнал по дате (новые сверху)
-    logs.sort((a, b) => b.ts - a.ts);
-    
-    // Создаем топ игроков
-    const topPlayers = Array.from(playerStats.entries())
-      .map(([name, total]) => ({ name, total }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
-    
-    return {
-      itemStats: Array.from(itemStats.entries()),
-      topPlayers,
-      logs,
-      totalPoints,
-      updatedAt: Date.now(),
-      totalItems: Array.from(itemStats.values()).reduce((a, b) => a + b, 0)
-    };
-  }
-
-  // Создаем снимок данных для таблицы
-  async function createSnapshot() {
-    try {
-      const data = await extractInventoryData();
-      const TARGET_TOTAL = 100;
-      const progressPercent = Math.min(100, (data.totalPoints / TARGET_TOTAL) * 100);
-      const completed = data.totalPoints >= TARGET_TOTAL;
-      
-      // Берем последнюю запись из журнала
-      const lastLog = data.logs.length > 0 ? data.logs[0] : null;
-      
-      return {
-        points: data.totalPoints,
-        target: TARGET_TOTAL,
-        p: progressPercent,
-        completed: completed,
-        updatedAt: data.updatedAt,
-        last: lastLog ? {
-          player: lastLog.player,
-          item: lastLog.item,
-          add: lastLog.add,
-          eid: null,
-          at: new Date(lastLog.ts).toISOString()
-        } : null,
-        topPlayers: data.topPlayers,
-        logs: data.logs.slice(0, 35)
-      };
-    } catch (error) {
-      console.error('Ошибка создания снимка:', error);
-      return null;
-    }
-  }
-
-  // Функции для отображения (из HTML джуна)
-  const send = () => {
-    const requestId = Math.random().toString(16).slice(2);
-    window.top.postMessage({ _pulseProgress:true, type:"progressRequest", requestId }, "*");
-
-    return new Promise(resolve => {
-      const handler = (e) => {
-        if (e.data?._pulseProgress && e.data.type === "progressResponse" && e.data.requestId === requestId) {
-          window.removeEventListener("message", handler);
-          resolve(e.data.data);
-        }
-      };
-      window.addEventListener("message", handler);
-      setTimeout(()=>{ window.removeEventListener("message", handler); resolve(null); }, 4500);
-    });
-  };
-
-  function fmtDate(ts){
-    // Используем нашу функцию для форматирования в локальное время
-    return formatLocalDate(ts);
   }
 
   function getLocalLast(){
@@ -661,8 +442,8 @@ function pointsForItem(name) {
     if (inFlight) return;
     inFlight = true;
     try{
-      // Используем наш метод для создания снимка данных
-      const snapshot = await createSnapshot();
+      // Запрашиваем данные у родителя
+      const snapshot = await send();
       if (snapshot) {
         applyAll(snapshot);
       }
@@ -679,6 +460,7 @@ function pointsForItem(name) {
     }, 250);
   }
 
+  // Слушаем сообщения от родителя для принудительного обновления
   window.addEventListener("message", function(e) {
     if (e.data?._pulseProgress && e.data.type === "forceRefresh") {
       scheduleTickFast();
@@ -687,9 +469,9 @@ function pointsForItem(name) {
 
   // Запускаем первичную загрузку
   tick();
-  setInterval(tick, INVENTORY_STAT_CONFIG.RELOAD);
+  
+  setInterval(tick, CONFIG.RELOAD_INTERVAL);
 })();
 </script>
 
 [/html]
-[hideprofile]

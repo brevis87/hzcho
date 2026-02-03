@@ -1,0 +1,256 @@
+<script>
+(function() {
+  // Конфигурация API
+  const INVENTORY_STAT_CONFIG = {
+    INVENTORY_TOPIC_ID: 2049, // Топик с постами
+    BASE_URL: window.location.origin,
+    POSTS_PER_REQUEST: 100,
+    API_CHUNK_SIZE: 50
+  };
+
+  const ALLOWED_ITEMS = new Set([
+    "Арматура", "Булыжник", "Кабель подсветки", "Кирпич", "Крепежные скобы", 
+    "Стальная пластина", "Обломок колонны", "Бетонная плита", "Ржавая балка", 
+    "Фрагмент знамени", "Болты", "Гипсовый раствор", "Осколок эмблемы", 
+    "Блок питания", "Светодиод", "Цемент", "Веревка", "Стекло", 
+    "Светодиодные буквы", "Набор мастера"
+  ]);
+
+  const DOUBLE_ITEMS = new Set([
+    "Болты", "Гипсовый раствор", "Осколок эмблемы", "Блок питания", 
+    "Светодиод", "Цемент"
+  ]);
+
+  const LOG_ONLY_ITEMS = new Set([
+    "Веревка", "Стекло", "Светодиодные буквы", "Набор мастера"
+  ]);
+
+  // Функция подсчета очков
+  function pointsForItem(name) {
+    name = String(name || "").trim();
+    if (LOG_ONLY_ITEMS.has(name)) return 0;
+    if (DOUBLE_ITEMS.has(name)) return 2;
+    return 1;
+  }
+
+  // API вызов
+  async function apiCall(method, params = {}) {
+    try {
+      const urlParams = new URLSearchParams({
+        method: method,
+        ...params
+      });
+      
+      const url = `/api.php?${urlParams.toString()}`;
+      const response = await fetch(url, {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      return result.response || result;
+      
+    } catch (error) {
+      console.error(`Ошибка при вызове API ${method}:`, error);
+      throw error;
+    }
+  }
+
+  // Загрузка всех постов из топика инвентаря
+  async function getAllPostsInInventoryTopic() {
+    try {
+      let allPosts = [];
+      let skip = 0;
+      let hasMore = true;
+      
+      while (hasMore) {
+        const postsResponse = await apiCall('post.get', {
+          topic_id: INVENTORY_STAT_CONFIG.INVENTORY_TOPIC_ID,
+          fields: 'id,message,posted,topic_id,user_id,username',
+          sort_by: 'id',
+          sort_dir: 'asc',
+          skip: skip,
+          limit: INVENTORY_STAT_CONFIG.POSTS_PER_REQUEST
+        });
+        
+        if (!postsResponse || postsResponse.length === 0) {
+          hasMore = false;
+          break;
+        }
+        
+        const postsArray = Array.isArray(postsResponse) ? postsResponse : 
+                         (postsResponse.posts || postsResponse.response || []);
+        
+        allPosts.push(...postsArray);
+        skip += INVENTORY_STAT_CONFIG.POSTS_PER_REQUEST;
+        
+        if (postsArray.length < INVENTORY_STAT_CONFIG.POSTS_PER_REQUEST) {
+          hasMore = false;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, INVENTORY_STAT_CONFIG.API_CHUNK_SIZE));
+      }
+      
+      return allPosts;
+      
+    } catch (error) {
+      console.error("Ошибка загрузки постов:", error);
+      throw error;
+    }
+  }
+
+  // Декодирование HTML
+  function decodeHtmlEntities(text) {
+    const textarea = document.createElement('textarea');
+    textarea.innerHTML = text;
+    return textarea.value;
+  }
+
+  // Парсинг даты UTC из data-finded
+  function parseUTCDate(dateString) {
+    try {
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        return date.getTime();
+      }
+      return Date.now();
+    } catch (error) {
+      console.warn('Ошибка парсинга UTC даты:', dateString, error);
+      return Date.now();
+    }
+  }
+
+  // Извлечение данных из постов
+  async function extractInventoryData() {
+    const posts = await getAllPostsInInventoryTopic();
+    const itemStats = new Map();
+    const playerStats = new Map();
+    const logs = [];
+    let totalPoints = 0;
+    
+    for (const post of posts) {
+      if (!post.message || !post.message.includes('[html]')) continue;
+      
+      const htmlMatch = post.message.match(/\[html\]([\s\S]*?)\[\/html\]/i);
+      if (!htmlMatch || !htmlMatch[1]) continue;
+      
+      const decodedHtml = decodeHtmlEntities(htmlMatch[1]);
+      const username = post.username || "Неизвестно";
+      
+      const itemRegex = /<img[^>]*src="[^"]*"[^>]*title="([^"]*)"[^>]*data-finded="([^"]*)"[^>]*>/gi;
+      let match;
+      
+      while ((match = itemRegex.exec(decodedHtml)) !== null) {
+        const title = match[1].trim();
+        const findedDateUTC = match[2].trim();
+        
+        if (!title || !findedDateUTC) continue;
+        
+        const timestamp = parseUTCDate(findedDateUTC);
+        
+        if (itemStats.has(title)) {
+          itemStats.set(title, itemStats.get(title) + 1);
+        } else {
+          itemStats.set(title, 1);
+        }
+        
+        const points = pointsForItem(title);
+        totalPoints += points;
+        
+        if (playerStats.has(username)) {
+          playerStats.set(username, playerStats.get(username) + points);
+        } else {
+          playerStats.set(username, points);
+        }
+        
+        logs.push({
+          ts: timestamp,
+          player: username,
+          item: title,
+          add: points
+        });
+      }
+    }
+    
+    logs.sort((a, b) => b.ts - a.ts);
+    
+    const topPlayers = Array.from(playerStats.entries())
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+    
+    return {
+      itemStats: Array.from(itemStats.entries()),
+      topPlayers,
+      logs,
+      totalPoints,
+      updatedAt: Date.now(),
+      totalItems: Array.from(itemStats.values()).reduce((a, b) => a + b, 0)
+    };
+  }
+
+  // Создание снимка данных (ВЫЗЫВАЕТСЯ ПО ЗАПРОСУ ОТ ФРЕЙМА)
+  async function createSnapshot() {
+    try {
+      const data = await extractInventoryData();
+      const TARGET_TOTAL = 100;
+      const progressPercent = Math.min(100, (data.totalPoints / TARGET_TOTAL) * 100);
+      const completed = data.totalPoints >= TARGET_TOTAL;
+      
+      const lastLog = data.logs.length > 0 ? data.logs[0] : null;
+      
+      return {
+        points: data.totalPoints,
+        target: TARGET_TOTAL,
+        p: progressPercent,
+        completed: completed,
+        updatedAt: data.updatedAt,
+        last: lastLog ? {
+          player: lastLog.player,
+          item: lastLog.item,
+          add: lastLog.add,
+          eid: null,
+          at: new Date(lastLog.ts).toISOString()
+        } : null,
+        topPlayers: data.topPlayers,
+        logs: data.logs.slice(0, 35)
+      };
+    } catch (error) {
+      console.error('Ошибка создания снимка:', error);
+      return null;
+    }
+  }
+
+  // Обработчик сообщений от фрейма
+  window.addEventListener('message', async function(event) {
+    // Проверяем, что это наше сообщение
+    if (event.data?._pulseProgress && event.data.type === "progressRequest") {
+      
+      try {
+        // Получаем данные через API (каждый раз свежие)
+        const snapshot = await createSnapshot();
+        
+        // Отправляем ответ обратно во фрейм
+        event.source.postMessage({
+          _pulseProgress: true,
+          type: "progressResponse",
+          requestId: event.data.requestId,
+          data: snapshot
+        }, event.origin);
+      } catch (error) {
+        console.error('Ошибка при обработке запроса от фрейма:', error);
+        // Отправляем пустой ответ в случае ошибки
+        event.source.postMessage({
+          _pulseProgress: true,
+          type: "progressResponse",
+          requestId: event.data.requestId,
+          data: null
+        }, event.origin);
+      }
+    }
+  });
+})();
+</script>
