@@ -1,0 +1,667 @@
+[html]
+
+
+<div id="cupidStatsContainer">
+    <!-- ОБЩАЯ СТАТИСТИКА -->
+    <div class="cupid-card">
+        <h2 class="cupid-gold">📊 ОБЩАЯ СТАТИСТИКА</h2>
+        <div class="stats-row">
+            <p>🎮 Всего игр: <b id="cupid-total-games">0</b></p>
+            <p>🏆 Всего очков: <b id="cupid-total-score">0</b></p>
+            <p>📈 Средний результат: <b id="cupid-avg-score">0</b></p>
+        </div>
+    </div>
+
+    <!-- РЕЙТИНГ ИГРОКОВ -->
+    <div class="cupid-card">
+        <h2 class="cupid-gold">🏅 РЕЙТИНГ КУПИДОНОВ</h2>
+        
+        <!-- МЕДАЛИ ТОП-3 -->
+        <div class="medals-container">
+            <div id="cupid-medal-1" class="medal-card medal-gold" style="display: none;">
+                <span class="medal-emoji">🥇</span>
+                <div class="medal-name" id="cupid-medal-1-name"></div>
+                <div class="medal-score" id="cupid-medal-1-score"></div>
+                <div class="medal-stats" id="cupid-medal-1-stats"></div>
+            </div>
+            <div id="cupid-medal-2" class="medal-card medal-silver" style="display: none;">
+                <span class="medal-emoji">🥈</span>
+                <div class="medal-name" id="cupid-medal-2-name"></div>
+                <div class="medal-score" id="cupid-medal-2-score"></div>
+                <div class="medal-stats" id="cupid-medal-2-stats"></div>
+            </div>
+            <div id="cupid-medal-3" class="medal-card medal-bronze" style="display: none;">
+                <span class="medal-emoji">🥉</span>
+                <div class="medal-name" id="cupid-medal-3-name"></div>
+                <div class="medal-score" id="cupid-medal-3-score"></div>
+                <div class="medal-stats" id="cupid-medal-3-stats"></div>
+            </div>
+        </div>
+
+        <!-- ТАБЛИЦА ИГРОКОВ -->
+        <div class="table-container">
+            <table class="cupid-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Игрок</th>
+                        <th class="text-right">Игр</th>
+                        <th class="text-right">Лучший</th>
+                        <th class="text-right">Средний</th>
+                        <th class="text-right">Всего</th>
+                    </tr>
+                </thead>
+                <tbody id="cupid-players-table-body">
+                    <tr><td colspan="6" class="empty-state">Нет данных об игроках</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- РЕЙТИНГ ПАР -->
+    <div class="cupid-card">
+        <h2 class="cupid-pink">👯 ПОПУЛЯРНЫЕ ПАРЫ</h2>
+        
+        <div class="table-container">
+            <table class="cupid-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Пара</th>
+                        <th class="text-right">Создано раз</th>
+                    </tr>
+                </thead>
+                <tbody id="cupid-pairs-table-body">
+                    <tr><td colspan="3" class="empty-state">Нет созданных пар</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- РЕЙТИНГ ЦЕЛЕЙ -->
+    <div class="cupid-card">
+        <h2 class="cupid-blue">🎯 ИЗЛЮБЛЕННЫЕ ЦЕЛИ</h2>
+        
+        <div class="target-highlights">
+            <div id="cupid-target-top" class="target-card" style="display: none;">
+                <div class="target-emoji">🎯</div>
+                <div class="target-name" id="cupid-target-top-name"></div>
+                <div class="target-count" id="cupid-target-top-count"></div>
+                <div class="gray-text">попаданий</div>
+                <div class="target-label">САМАЯ ЧАСТАЯ ЦЕЛЬ</div>
+            </div>
+            <div id="cupid-target-rare" class="target-card" style="display: none;">
+                <div class="target-emoji">👻</div>
+                <div class="target-name" id="cupid-target-rare-name"></div>
+                <div class="target-count" id="cupid-target-rare-count"></div>
+                <div class="gray-text">попаданий</div>
+                <div class="target-label" id="cupid-target-rare-label">НЕУЛОВИМЫЙ ДЖО</div>
+            </div>
+        </div>
+
+        <h3 class="cupid-blue">📋 ПОЛНЫЙ РЕЙТИНГ ЦЕЛЕЙ</h3>
+        
+        <div class="table-container">
+            <table class="cupid-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Аватар</th>
+                        <th class="text-right">Попаданий</th>
+                        <th class="text-center">Статус</th>
+                    </tr>
+                </thead>
+                <tbody id="cupid-targets-table-body">
+                    <tr><td colspan="4" class="empty-state">Нет данных о попаданиях</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- РЕЙТИНГ ФИНАЛОВ -->
+    <div class="cupid-card">
+        <h2 class="cupid-red">😈 ИХ ВСЕ ХОТЯТ УКРАСТЬ</h2>
+        
+        <!-- МЕДАЛИ ФИНАЛОВ ТОП-3 -->
+        <div class="medals-container">
+            <div id="cupid-final-1" class="medal-card" style="display: none; background: rgba(220,20,60,0.1); border: 1px solid #dc143c;">
+                <span class="medal-emoji">🥇</span>
+                <div class="medal-name" id="cupid-final-1-name"></div>
+                <div class="medal-score" id="cupid-final-1-score" style="color: #dc143c;"></div>
+                <div class="medal-stats">раз(а) пытались утянуть из пары</div>
+            </div>
+            <div id="cupid-final-2" class="medal-card" style="display: none; background: rgba(178,34,34,0.1); border: 1px solid #dc143c;">
+                <span class="medal-emoji">🥈</span>
+                <div class="medal-name" id="cupid-final-2-name"></div>
+                <div class="medal-score" id="cupid-final-2-score" style="color: #dc143c;"></div>
+                <div class="medal-stats">раз(а) пытались утянуть из пары</div>
+            </div>
+            <div id="cupid-final-3" class="medal-card" style="display: none; background: rgba(139,0,0,0.1); border: 1px solid #dc143c;">
+                <span class="medal-emoji">🥉</span>
+                <div class="medal-name" id="cupid-final-3-name"></div>
+                <div class="medal-score" id="cupid-final-3-score" style="color: #dc143c;"></div>
+                <div class="medal-stats">раз(а) пытались утянуть из пары</div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="cupid-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Имя</th>
+                        <th class="text-right">Пытались утянуть из пары</th>
+                    </tr>
+                </thead>
+                <tbody id="cupid-finals-table-body">
+                    <tr><td colspan="3" class="empty-state">Нет данных о краже</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ФУТЕР -->
+    <div class="cupid-footer">
+        📊 Данные от: <span id="cupid-last-update">загрузка...</span>
+    </div>
+</div>
+
+<style>
+/* ============= ОСНОВНЫЕ СТИЛИ ============= */
+.cupid-card {
+    background: #2a2a2a;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+	color: white;
+}
+
+.cupid-card h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cupid-card h3 {
+    margin: 20px 0 10px;
+    font-size: 18px;
+}
+
+.cupid-gold { color: #ffd700; }
+.cupid-pink { color: #ff69b4; }
+.cupid-blue { color: #87ceeb; }
+.cupid-red { color: #dc143c; }
+
+/* СТАТИСТИКА */
+.stats-row {
+    display: flex;
+    gap: 30px;
+    font-size: 16px;
+}
+
+.stats-row p {
+    margin: 10px 0;
+}
+
+.stats-row b {
+    color: #fff;
+    font-size: 18px;
+    margin-left: 5px;
+}
+
+/* МЕДАЛИ */
+.medals-container {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.medal-card {
+    flex: 1;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.medal-gold {
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid #ffd700;
+}
+
+.medal-silver {
+    background: rgba(192, 192, 192, 0.1);
+    border: 1px solid #c0c0c0;
+}
+
+.medal-bronze {
+    background: rgba(205, 127, 50, 0.1);
+    border: 1px solid #cd7f32;
+}
+
+.medal-emoji {
+    font-size: 32px;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.medal-name {
+    font-weight: bold;
+    font-size: 16px;
+    margin: 5px 0;
+    color: #fff;
+}
+
+.medal-score {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.medal-gold .medal-score { color: #ffd700; }
+.medal-silver .medal-score { color: #c0c0c0; }
+.medal-bronze .medal-score { color: #cd7f32; }
+
+.medal-stats {
+    font-size: 12px;
+    color: #999;
+    margin-top: 5px;
+}
+
+/* ТАБЛИЦЫ */
+.table-container {
+    max-height: 200px;
+    overflow-y: auto;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.cupid-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.cupid-table th {
+    background: #9e654c !important;
+    padding: 10px 8px;
+    text-align: left;
+    position: sticky;
+    top: 0;
+    color: #fff !important;
+    font-weight: bold;
+}
+
+.cupid-table td {
+    padding: 8px;
+}
+
+.cupid-table tr:nth-child(even) {
+    background: #2a2a2a;
+}
+
+.cupid-table tr:nth-child(odd) {
+    background: #222;
+}
+
+.cupid-table tr:hover {
+    background: #333;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.font-bold {
+    font-weight: bold;
+}
+
+.gold-text { color: #ffd700; }
+.pink-text { color: #ff69b4; }
+.blue-text { color: #87ceeb; }
+.red-text { color: #dc143c; }
+.gray-text { color: #999; }
+
+/* КНОПКИ "ПОКАЗАТЬ ЕЩЁ" ПОЛНОСТЬЮ СКРЫТЫ */
+.load-more {
+    display: none !important;
+}
+
+/* ЦЕЛИ */
+.target-highlights {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.target-card {
+    flex: 1;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.target-card:first-child {
+    background: rgba(65, 105, 225, 0.1);
+    border: 1px solid #4169e1;
+}
+
+.target-card:last-child {
+    background: rgba(128, 128, 128, 0.1);
+    border: 1px solid #808080;
+}
+
+.target-emoji {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+.target-name {
+    font-weight: bold;
+    font-size: 16px;
+    color: #fff;
+    margin: 5px 0;
+}
+
+.target-count {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 5px 0;
+}
+
+.target-card:first-child .target-count { color: #4169e1; }
+.target-card:last-child .target-count { color: #808080; }
+
+.target-label {
+    margin-top: 8px;
+    font-size: 11px;
+}
+
+.target-card:first-child .target-label { color: #4169e1; }
+.target-card:last-child .target-label { color: #808080; }
+
+/* СТАТУСЫ */
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.status-ghost { background: #808080; color: #fff; }
+.status-top1 { background: #4169e1; color: #fff; }
+.status-top3 { background: #87ceeb; color: #000; }
+
+/* ПУСТЫЕ СОСТОЯНИЯ */
+.empty-state {
+    color: #999;
+    padding: 30px;
+    text-align: center;
+    font-style: italic;
+}
+
+/* ФУТЕР */
+.cupid-footer {
+    text-align: center;
+    color: #999;
+    padding: 15px;
+    font-size: 12px;
+    border-top: 1px solid #333;
+    margin-top: 10px;
+    font-family: 'Courier New', Courier, monospace;
+}
+</style>
+
+<script>
+(function() {
+    "use strict";
+
+    // ============= КОНСТАНТЫ =============
+    let currentData = null;
+
+    // ============= ЗАПРОС К РОДИТЕЛЮ =============
+    function sendRequest() {
+        const requestId = Math.random().toString(16).slice(2);
+        window.parent.postMessage({ 
+            CUPID_stats: true, 
+            type: "CUPID_request", 
+            requestId: requestId 
+        }, "*");
+
+        return new Promise(resolve => {
+            const handler = (e) => {
+                if (e.data?.CUPID_stats && 
+                    e.data.type === "CUPID_response" && 
+                    e.data.requestId === requestId) {
+                    window.removeEventListener("message", handler);
+                    resolve(e.data.data);
+                }
+            };
+            
+            window.addEventListener("message", handler);
+            setTimeout(() => {
+                window.removeEventListener("message", handler);
+                resolve(null);
+            }, 5000);
+        });
+    }
+
+    // ============= РЕНДЕР =============
+    function renderAll(data) {
+        if (!data) return;
+        currentData = data;
+        
+        // Общая статистика
+        document.getElementById('cupid-total-games').textContent = data.totalGames || 0;
+        document.getElementById('cupid-total-score').textContent = data.totalScore || 0;
+        const avg = data.totalGames ? Math.round(data.totalScore / data.totalGames) : 0;
+        document.getElementById('cupid-avg-score').textContent = avg;
+        
+        // Дата загрузки
+        document.getElementById('cupid-last-update').textContent = new Date().toLocaleString();
+        
+        // Рендер секций (всегда полностью)
+        renderPlayers(data.players);
+        renderPairs(data.pairs);
+        renderTargets(data.targets);
+        renderFinals(data.finals);
+    }
+
+    // ============= ИГРОКИ =============
+    function renderPlayers(players) {
+        const tbody = document.getElementById('cupid-players-table-body');
+        
+        if (!players || Object.keys(players).length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Нет данных об игроках</td></tr>';
+            for (let i = 1; i <= 3; i++) {
+                document.getElementById(`cupid-medal-${i}`).style.display = 'none';
+            }
+            return;
+        }
+
+        // Сортируем игроков
+        const playersList = Object.entries(players)
+            .map(([name, p]) => ({
+                name,
+                games: p.games || 0,
+                bestScore: p.bestScore || 0,
+                totalScore: p.totalScore || 0
+            }))
+            .sort((a, b) => b.bestScore - a.bestScore);
+
+        // Медали ТОП-3
+        for (let i = 0; i < 3; i++) {
+            const medal = document.getElementById(`cupid-medal-${i+1}`);
+            if (playersList[i]) {
+                medal.style.display = 'block';
+                document.getElementById(`cupid-medal-${i+1}-name`).textContent = playersList[i].name;
+                document.getElementById(`cupid-medal-${i+1}-score`).textContent = playersList[i].bestScore;
+                const avg = playersList[i].games ? Math.round(playersList[i].totalScore / playersList[i].games) : 0;
+                document.getElementById(`cupid-medal-${i+1}-stats`).textContent = `игр: ${playersList[i].games} | средний: ${avg}`;
+            } else {
+                medal.style.display = 'none';
+            }
+        }
+
+        // Таблица со ВСЕМИ игроками (без пагинации)
+        let html = '';
+        playersList.forEach((p, i) => {
+            const avg = p.games ? Math.round(p.totalScore / p.games) : 0;
+            html += `<tr>
+                <td>${i + 1}</td>
+                <td class="font-bold">${p.name}</td>
+                <td class="text-right">${p.games}</td>
+                <td class="text-right gold-text font-bold">${p.bestScore}</td>
+                <td class="text-right">${avg}</td>
+                <td class="text-right">${p.totalScore}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ============= ПАРЫ =============
+    function renderPairs(pairs) {
+        const tbody = document.getElementById('cupid-pairs-table-body');
+        
+        if (!pairs || Object.keys(pairs).length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Нет созданных пар</td></tr>';
+            return;
+        }
+
+        const pairsList = Object.entries(pairs).sort((a, b) => b[1] - a[1]);
+        
+        // Таблица со ВСЕМИ парами
+        let html = '';
+        pairsList.forEach(([key, count], i) => {
+            const [p1, p2] = key.split('-');
+            html += `<tr>
+                <td>${i + 1}</td>
+                <td>${p1} 🔗 ${p2}</td>
+                <td class="text-right pink-text font-bold">${count}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ============= ЦЕЛИ =============
+    function renderTargets(targets) {
+        const tbody = document.getElementById('cupid-targets-table-body');
+        
+        if (!targets || Object.keys(targets).length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Нет данных о попаданиях</td></tr>';
+            document.getElementById('cupid-target-top').style.display = 'none';
+            document.getElementById('cupid-target-rare').style.display = 'none';
+            return;
+        }
+
+        const targetsList = Object.entries(targets).sort((a, b) => b[1] - a[1]);
+        
+        // Топ цель
+        const topTarget = targetsList[0];
+        document.getElementById('cupid-target-top').style.display = 'block';
+        document.getElementById('cupid-target-top-name').textContent = topTarget[0];
+        document.getElementById('cupid-target-top-count').textContent = topTarget[1];
+        
+        // Редкая цель
+        const zeroHits = targetsList.filter(([_, c]) => c === 0);
+        let rareTarget;
+        if (zeroHits.length > 0) {
+            rareTarget = zeroHits[0];
+        } else {
+            rareTarget = targetsList[targetsList.length - 1];
+        }
+        document.getElementById('cupid-target-rare').style.display = 'block';
+        document.getElementById('cupid-target-rare-name').textContent = rareTarget[0];
+        document.getElementById('cupid-target-rare-count').textContent = rareTarget[1];
+        document.getElementById('cupid-target-rare-label').textContent = 
+            rareTarget[1] === 0 ? 'НИ РАЗУ НЕ ПОПАЛИ' : 'САМЫЙ РЕДКИЙ';
+
+        // Таблица со ВСЕМИ целями
+        let html = '';
+        targetsList.forEach(([name, count], i) => {
+            let statusBadge = '';
+            if (count === 0) {
+                statusBadge = '<span class="status-badge status-ghost">👻 НЕУЛОВИМЫЙ</span>';
+            } else if (i === 0) {
+                statusBadge = '<span class="status-badge status-top1">🎯 ТОП-1</span>';
+            } else if (i < 3) {
+                statusBadge = '<span class="status-badge status-top3">⭐ ТОП-3</span>';
+            }
+            
+            html += `<tr>
+                <td>${i + 1}</td>
+                <td class="font-bold">${name}</td>
+                <td class="text-right blue-text font-bold">${count}</td>
+                <td class="text-center">${statusBadge}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ============= ФИНАЛЫ =============
+    function renderFinals(finals) {
+        const tbody = document.getElementById('cupid-finals-table-body');
+        
+        if (!finals || Object.keys(finals).length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="empty-state">Нет данных о краже</td></tr>';
+            
+            for (let i = 1; i <= 3; i++) {
+                document.getElementById(`cupid-final-${i}`).style.display = 'none';
+            }
+            return;
+        }
+
+        const finalsList = Object.entries(finals).sort((a, b) => b[1] - a[1]);
+        
+        // Медали ТОП-3
+        for (let i = 0; i < 3; i++) {
+            const medal = document.getElementById(`cupid-final-${i+1}`);
+            if (finalsList[i]) {
+                medal.style.display = 'block';
+                document.getElementById(`cupid-final-${i+1}-name`).textContent = finalsList[i][0];
+                document.getElementById(`cupid-final-${i+1}-score`).textContent = finalsList[i][1];
+            } else {
+                medal.style.display = 'none';
+            }
+        }
+
+        // Таблица со ВСЕМИ финалами
+        let html = '';
+        finalsList.forEach(([name, count], i) => {
+            html += `<tr>
+                <td>${i + 1}</td>
+                <td class="font-bold">${name}</td>
+                <td class="text-right red-text font-bold">${count}</td>
+            </tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ============= ИНИЦИАЛИЗАЦИЯ =============
+    async function init() {
+        try {
+            const data = await sendRequest();
+            if (data) {
+                renderAll(data);
+            }
+        } catch (e) {
+            console.error(e);
+            document.getElementById('cupid-last-update').textContent = 'ошибка загрузки';
+        }
+    }
+
+    init();
+})();
+</script>
+
+
+[/html]

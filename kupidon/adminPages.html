@@ -1,0 +1,1626 @@
+<style>
+#game {
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+:root {
+    --crosshair-x: 50%;
+    --crosshair-y: 50%;
+    --dark900: 12 12 12;
+    --light100: 215 215 208;
+    --text900: 25 25 25;
+    --primary400: 99 65 51;
+    --secondary400: 172 172 163;
+    --success: 52 199 89;
+    --warning: 255 204 0;
+    --danger: 236 34 31;
+    --font: arial, tahoma, sans-serif;
+    --color-accent: #9e654c;
+}
+
+#game {
+    background: rgb(var(--light100));
+    min-height: 100vh;
+    position: relative;
+    font-family: var(--font);
+    display: flex;
+    flex-direction: column;
+}
+
+.game-header {
+    background: rgba(var(--dark900), 0.95);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 20px 20px 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border: 1px solid rgb(var(--primary400));
+}
+
+.game-header .game-title {
+    color: rgb(var(--primary400));
+    font-size: 20px;
+    margin: 0;
+    font-weight: bold;
+}
+
+.stats {
+    display: flex;
+    gap: 24px;
+}
+
+.stat {
+    font-size: 14px;
+    color: rgb(var(--primary400));
+    font-weight: bold;
+}
+
+.stat span {
+    color: rgb(var(--primary400));
+    font-size: 18px;
+}
+
+.controls {
+    background: rgba(var(--light100), 0.95);
+    padding: 12px 16px;
+    border-radius: 4px;
+    margin: 0 20px 16px 20px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    border: 1px solid rgb(var(--secondary400));
+}
+
+.control-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    background: linear-gradient(45deg, rgb(var(--primary400)), var(--color-accent));
+    color: rgb(var(--light100));
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.control-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 3px 10px rgba(var(--primary400), 0.4);
+}
+
+.control-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.instructions {
+    margin-left: auto;
+    color: rgb(var(--secondary400));
+    font-size: 12px;
+}
+
+/* ============= СТАТИСТИКА ВСЕГДА СНИЗУ ============= */
+.game-area {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 0 20px 20px 20px;
+    flex: 1;
+}
+
+.game-container {
+    position: relative;
+    width: 100%;
+    height: 60vh;
+    min-height: 500px;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    border: 2px solid rgb(var(--primary400));
+}
+
+#users {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background: rgb(94, 72, 125);
+}
+
+.avatar {
+    position: absolute;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    border: 2px solid rgb(var(--light100));
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transform: translate3d(0, 0, 0);
+    transition: border-color 0.2s;
+    z-index: 2;
+    will-change: transform;
+}
+
+.avatar.fallback {
+    background: linear-gradient(45deg, var(--color-accent), rgb(var(--primary400)));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgb(var(--light100));
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.avatar.paired {
+    border: 3px solid var(--color-accent);
+    box-shadow: 0 0 15px rgba(158, 101, 76, 0.8);
+}
+
+.avatar.highlighted {
+    border: 4px solid rgb(var(--danger));
+    box-shadow: 0 0 20px rgba(var(--danger), 1);
+    transform: scale(1.1);
+    z-index: 3;
+}
+
+.aim-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 900;
+    opacity: 1;
+    background: radial-gradient(
+        circle 60px at var(--crosshair-x) var(--crosshair-y),
+        transparent 60px,
+        rgba(0, 0, 0, 0.95) 100px
+    );
+}
+
+.target-indicator {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    color: rgb(var(--light100));
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 14px;
+    z-index: 1002;
+    display: none;
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid rgb(var(--danger));
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.target-indicator .target-name {
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+    white-space: nowrap;
+}
+
+.target-indicator.free-target {
+    border-color: rgb(var(--primary400));
+}
+
+.target-indicator.paired-target {
+    border-color: var(--color-accent);
+}
+
+.crosshair {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgb(var(--danger));
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    z-index: 1001;
+    background: rgba(var(--danger), 0.1);
+    box-shadow: 
+        0 0 20px rgba(var(--danger), 0.8),
+        inset 0 0 10px rgba(var(--danger), 0.3);
+}
+
+.crosshair::before,
+.crosshair::after {
+    content: '';
+    position: absolute;
+    background: rgb(var(--danger));
+    box-shadow: 0 0 8px rgba(var(--danger), 0.8);
+}
+
+.crosshair::before {
+    width: 2px;
+    height: 60px;
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.crosshair::after {
+    width: 60px;
+    height: 2px;
+    left: -60px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.crosshair-line-bottom,
+.crosshair-line-right {
+    position: absolute;
+    background: rgb(var(--danger));
+    box-shadow: 0 0 8px rgba(var(--danger), 0.8);
+}
+
+.crosshair-line-bottom {
+    width: 2px;
+    height: 60px;
+    bottom: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.crosshair-line-right {
+    width: 60px;
+    height: 2px;
+    right: -60px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.shot-effect {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(var(--danger), 0.8) 0%, rgba(var(--danger), 0) 70%);
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -50%);
+    z-index: 1002;
+}
+
+/* ============= ПАНЕЛЬ ИНФОРМАЦИИ ВСЕГДА СНИЗУ ============= */
+.info-panel {
+    width: 100%;
+    background: rgba(var(--light100), 0.95);
+    border-radius: 4px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: flex;
+    gap: 24px;
+    border: 1px solid rgb(var(--secondary400));
+    flex-shrink: 0;
+    height: 200px;
+}
+
+.info-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.info-right {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+}
+
+.info-panel .panel-title {
+    color: rgb(var(--primary400));
+    font-size: 14px;
+    margin-bottom: 8px;
+    border-bottom: 2px solid rgb(var(--primary400));
+    padding-bottom: 4px;
+    font-weight: bold;
+}
+
+.selected-targets .target {
+    margin: 6px 0;
+    padding: 8px;
+    background: rgba(var(--primary400), 0.1);
+    border-radius: 4px;
+    font-size: 13px;
+    border: 1px solid rgba(var(--primary400), 0.3);
+}
+
+.target-name {
+    font-weight: bold;
+    color: rgb(var(--primary400));
+}
+
+.pairs-list-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+    border: 1px solid rgba(var(--secondary400), 0.3);
+    border-radius: 4px;
+    background: rgba(var(--light100), 0.8);
+    height: 120px;
+}
+
+.pairs-list-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.pairs-list-content::-webkit-scrollbar-track {
+    background: rgba(var(--secondary400), 0.1);
+    border-radius: 3px;
+}
+
+.pairs-list-content::-webkit-scrollbar-thumb {
+    background: var(--color-accent);
+    border-radius: 3px;
+}
+
+.pair-item {
+    display: flex;
+    align-items: center;
+    margin: 4px 0;
+    padding: 6px;
+    background: rgba(var(--primary400), 0.05);
+    border-radius: 4px;
+    border-left: 2px solid var(--color-accent);
+    font-size: 11px;
+    min-height: 32px;
+}
+
+.pair-names {
+    color: rgb(var(--text900));
+    font-weight: bold;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ============= МОДАЛЬНЫЕ ОКНА ============= */
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(var(--dark900), 0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.modal-content {
+    background: rgb(var(--light100));
+    padding: 32px;
+    border-radius: 4px;
+    text-align: center;
+    max-width: 400px;
+    border: 2px solid rgb(var(--primary400));
+}
+
+.modal-content .modal-title {
+    color: rgb(var(--primary400));
+    margin-bottom: 16px;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.modal-content p {
+    margin: 8px 0;
+    font-size: 14px;
+    color: rgb(var(--text900));
+}
+
+.modal-content ul {
+    text-align: left;
+    margin: 12px 0;
+    padding-left: 20px;
+    color: rgb(var(--text900));
+    font-size: 14px;
+}
+
+.modal-content li {
+    margin: 6px 0;
+}
+
+.modal-btn {
+    margin-top: 16px;
+    padding: 12px 24px;
+    font-size: 14px;
+    background: linear-gradient(45deg, rgb(var(--primary400)), var(--color-accent));
+    color: rgb(var(--light100));
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.modal-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 3px 12px rgba(var(--primary400), 0.4);
+}
+
+.modal-btn-secondary {
+    margin-top: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    background: transparent;
+    color: rgb(var(--primary400));
+    border: 1px solid rgb(var(--primary400));
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.modal-btn-secondary:hover {
+    background: rgba(var(--primary400), 0.1);
+}
+
+.score-animation {
+    position: absolute;
+    color: rgb(var(--danger));
+    font-size: 20px;
+    font-weight: bold;
+    text-shadow: 
+        0 0 10px rgba(var(--danger), 0.8),
+        2px 2px 4px rgba(0,0,0,0.3);
+    pointer-events: none;
+    z-index: 1004;
+    animation: floatUp 1.2s ease-out forwards;
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-60px) scale(1.3);
+        opacity: 0;
+    }
+}
+
+#loadingScreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(var(--dark900), 0.95);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+    color: rgb(var(--light100));
+}
+
+#loadingBar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(45deg, rgb(var(--primary400)), var(--color-accent));
+    transition: width 0.3s;
+}
+
+/* ============= КНОПКИ ДЛЯ МОБИЛЬНЫХ ============= */
+.mobile-controls {
+    display: none;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 15px;
+    margin-top: 5px;
+    padding: 5px;
+}
+
+/* РОМБИК - компактный */
+.mobile-arrows {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    position: relative;
+}
+
+.arrow-row-top {
+    display: flex;
+    justify-content: center;
+    margin-bottom: -8px;
+}
+
+.arrow-row-middle {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 40px;
+}
+
+.arrow-row-bottom {
+    display: flex;
+    justify-content: center;
+    margin-top: -8px;
+}
+
+.arrow-btn {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+    background: rgba(99,65,51,0.9);
+    color: white;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.2);
+    transition: all 0.05s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.arrow-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+}
+
+.shoot-btn {
+    width: 90px;
+    height: 90px;
+    font-size: 48px;
+    background: rgb(236,34,31);
+    color: white;
+    border: none;
+    border-radius: 45px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.2);
+    transition: all 0.05s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.shoot-btn:active {
+    transform: translateY(6px);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+}
+
+
+@media (max-width: 768px) {
+    .mobile-controls {
+        display: flex;
+    }
+}
+</style>
+
+<div id="game">
+    <div class="game-header">
+        <div class="game-title">ПЬЯНЫЙ КУПИДОН</div>
+        <div class="stats">
+            <div class="stat">Пары: <span id="pairsCount">0</span></div>
+            <div class="stat">Очки: <span id="score">0</span></div>
+            <div class="stat">Цели: <span id="shotsCount">0/2</span></div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button id="startBtn" class="control-btn">Запустить игру</button>
+        <button id="rulesBtn" class="control-btn">Правила</button>
+        <button id="endGameBtn" class="control-btn end-game-btn">Завершить игру</button>
+        <div class="instructions">
+            <strong>Управление:</strong> WASD - прицел, Space - выстрел
+        </div>
+    </div>
+    
+    <div class="game-area">
+        <div class="game-container">
+            <div class="aim-overlay" id="aimOverlay"></div>
+            <div id="users"></div>
+            <div class="target-indicator" id="targetIndicator">
+                <div class="target-name" id="currentTargetName"></div>
+            </div>
+            <div class="crosshair" id="crosshair">
+                <div class="crosshair-line-bottom"></div>
+                <div class="crosshair-line-right"></div>
+            </div>
+            <div class="shot-effect"></div>
+            
+            <!-- МОДАЛЬНОЕ ОКНО ПРАВИЛ -->
+            <div class="modal-overlay" id="rulesModal">
+                <div class="modal-content">
+                    <div class="modal-title">Правила игры</div>
+                    <div class="modal-title">Ты - ПЬЯНЫЙ КУПИДОН.</div>
+                    <ul>
+                        <li>🎯 Наводи прицел на свободных игроков и пали!</li>
+                        <li>💘 Два выстрела создают пару</li>
+                        <li>❤️ Не стреляй в уже подбитых — игра закончится</li>
+                        <li>🏆 Создай как можно больше пар</li>
+                        <li>⭐ За выстрел + 1 очко, за пару + 1 дополнительное очко</li>
+                        <li>📱 На телефоне управляй стрелками и кнопкой (под игровым полем)</li>
+                        <li>❗ Игра ЗАВЕРШИТСЯ либо после победы, либо после поражения, либо после нажатия СПЕЦИАЛЬНОЙ кнопки. Промежуточные результаты НЕ СОХРАНЯЮТСЯ.</li>
+                    </ul>
+                    <button id="closeRulesBtn" class="modal-btn">Понятно!</button>
+                </div>
+            </div>
+            
+            <!-- МОДАЛЬНОЕ ОКНО КОНЦА ИГРЫ -->
+            <div class="modal-overlay" id="gameOverlay">
+                <div class="modal-content">
+                    <div class="modal-title" id="overlayTitle">Игра окончена!</div>
+                    <p id="overlayReason">Вы попали в уже занятого игрока</p>
+                    <p>Ваш результат: <span id="overlayScore">0</span> очков</p>
+                    <p>Создано пар: <span id="overlayPairs">0</span></p>
+                    <button id="restartGameBtn" class="modal-btn">Начать заново</button>
+                    <button id="continueBtn" class="modal-btn-secondary">Продолжить просмотр</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- КНОПКИ УПРАВЛЕНИЯ ДЛЯ ТЕЛЕФОНА - РОМБИКОМ, БЕЗ ЭМОДЗИ, КОМПАКТНО -->
+        <div class="mobile-controls">
+            <div class="mobile-arrows">
+                <div class="arrow-row-top">
+                    <button id="arrowUp" class="arrow-btn">▲</button>
+                </div>
+                <div class="arrow-row-middle">
+                    <button id="arrowLeft" class="arrow-btn">◀</button>
+                    <button id="arrowRight" class="arrow-btn">▶</button>
+                </div>
+                <div class="arrow-row-bottom">
+                    <button id="arrowDown" class="arrow-btn">▼</button>
+                </div>
+            </div>
+            <div class="mobile-shoot">
+                <button id="shootBtn" class="shoot-btn">🎯</button>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <div class="info-left">
+                <div class="selected-targets">
+                    <div class="panel-title">Выбранные цели:</div>
+                    <div id="target1" class="target">1. <span class="target-name">-</span></div>
+                    <div id="target2" class="target">2. <span class="target-name">-</span></div>
+                </div>
+            </div>
+            
+            <div class="info-right">
+                <div class="pairs-list">
+                    <div class="panel-title">Созданные пары: <span id="pairsCountSmall">0</span></div>
+                    <div id="pairsList" class="pairs-list-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+var mainUrl = "https://pulseofny.rusff.me";
+var users = [];
+const userDiv = $("#users");
+const startBtn = $("#startBtn");
+const statsBtn = $("#statsBtn");
+const rulesBtn = $("#rulesBtn");
+const endGameBtn = $("#endGameBtn");
+
+// Элементы интерфейса
+const crosshair = $(".crosshair");
+const aimOverlay = $("#aimOverlay");
+const shotEffect = $(".shot-effect");
+const gameOverlay = $("#gameOverlay");
+const rulesModal = $("#rulesModal");
+const closeRulesBtn = $("#closeRulesBtn");
+const overlayTitle = $("#overlayTitle");
+const overlayReason = $("#overlayReason");
+const overlayScore = $("#overlayScore");
+const overlayPairs = $("#overlayPairs");
+const restartGameBtn = $("#restartGameBtn");
+const continueBtn = $("#continueBtn");
+
+const pairsCountEl = $("#pairsCount");
+const scoreEl = $("#score");
+const shotsCountEl = $("#shotsCount");
+const targetIndicator = $("#targetIndicator");
+const currentTargetName = $("#currentTargetName");
+const target1El = $("#target1 .target-name");
+const target2El = $("#target2 .target-name");
+const pairsListEl = $("#pairsList");
+const pairsCountSmall = $("#pairsCountSmall");
+
+// Состояние игры
+let gameState = {
+    isRunning: false,
+    currentTargets: [null, null],
+    pairs: [],
+    score: 0,
+    shots: 0,
+    selectedAvatars: [],
+    currentTarget: null,
+    highlightedAvatar: null,
+    isShooting: false,
+    gameEndReason: null,
+    gameEndedByAvatar: null
+};
+
+// Позиция прицела
+let crosshairPos = {
+    x: 0,
+    y: 0
+};
+
+// Состояние клавиш
+const keysPressed = {
+    w: false,
+    s: false,
+    a: false,
+    d: false,
+    'ц': false,
+    'ы': false,
+    'ф': false,
+    'в': false
+};
+
+// Данные аватаров
+let avatars = [];
+
+// ============= TIME-BASED ДВИЖЕНИЕ =============
+const BASE_SPEED = 40;
+const CROSSHAIR_SPEED = 240;
+
+const config = {
+    avatarCount: 500,
+    shotPoints: 1,
+    pairPoints: 1,
+    speedReductionOnBounce: 0.95,
+    speedReductionOnPair: 0.4,
+    randomChangeChance: 0.15,
+    randomChangeAmount: 4
+};
+
+// ФИЗИКА С ФИКСИРОВАННЫМ ШАГОМ
+const PHYSICS_STEP = 1/60;
+let physicsAccumulator = 0;
+let lastTimestamp = 0;
+let animationFrameId = null;
+
+// ==============================================
+
+let loadedAvatars = 0;
+let totalAvatars = 0;
+let loadingScreen = null;
+
+// Размеры контейнера
+let containerWidth = 800;
+let containerHeight = 600;
+let containerInitialized = false;
+
+function updateContainerSize() {
+    if (userDiv.length) {
+        const newWidth = userDiv.width();
+        const newHeight = userDiv.height();
+        if (newWidth && newHeight) {
+            containerWidth = newWidth;
+            containerHeight = newHeight;
+            containerInitialized = true;
+        }
+    }
+}
+
+// ============= СТАТИСТИКА - ТОЛЬКО СОХРАНЕНИЕ =============
+
+const APP_ID = 16777213;
+const STORAGE_KEY = 'cupid_stats';
+const RULES_SEEN_KEY = 'cupid_rules_seen';
+let statsData = null;
+
+// Загрузить статистику (только для игры)
+async function loadStats() {
+    try {
+        const response = await $.get("/api.php", {
+            token: ForumAPITicket,
+            method: "storage.get",
+            app_id: APP_ID,
+            key: [STORAGE_KEY]
+        });
+        
+        if (response.response && response.response.storage.data[STORAGE_KEY]) {
+            statsData = JSON.parse(response.response.storage.data[STORAGE_KEY]);
+        } else {
+            statsData = {
+                totalGames: 0,
+                totalScore: 0,
+                players: {},
+                pairs: {},
+                targets: {},
+                finals: {}
+            };
+        }
+    } catch (e) {
+        statsData = {
+            totalGames: 0,
+            totalScore: 0,
+            players: {},
+            pairs: {},
+            targets: {},
+            finals: {}
+        };
+    }
+    return statsData;
+}
+
+// Сохранить статистику
+async function saveStats() {
+    if (!statsData) return;
+    
+    try {
+        await $.post("/api.php", {
+            token: ForumAPITicket,
+            method: "storage.set",
+            app_id: APP_ID,
+            key: STORAGE_KEY,
+            value: JSON.stringify(statsData)
+        });
+    } catch (e) {
+        console.error('❌ Ошибка сохранения статистики:', e);
+    }
+}
+
+// ID текущего игрока
+function getCurrentPlayerId() {
+    if (typeof UserID !== 'undefined' && UserID) {
+        return UserID.toString();
+    }
+    return 'guest';
+}
+
+// Обновить статистику игрока
+function updatePlayerStats(playerId, currentScore) {
+    if (!statsData.players[playerId]) {
+        statsData.players[playerId] = {
+            games: 0,
+            totalScore: 0,
+            bestScore: 0
+        };
+    }
+    
+    statsData.players[playerId].games++;
+    statsData.players[playerId].totalScore += currentScore;
+    
+    if (currentScore > statsData.players[playerId].bestScore) {
+        statsData.players[playerId].bestScore = currentScore;
+    }
+}
+
+// Добавить пару
+function addPairToStats(avatar1Id, avatar2Id) {
+    const id1 = avatars[avatar1Id].user.user_id.toString();
+    const id2 = avatars[avatar2Id].user.user_id.toString();
+    const pairKey = [id1, id2].sort((a, b) => parseInt(a) - parseInt(b)).join('-');
+    
+    if (!statsData.pairs) statsData.pairs = {};
+    statsData.pairs[pairKey] = (statsData.pairs[pairKey] || 0) + 1;
+}
+
+// Добавить попадание
+function addTargetHit(avatarId) {
+    const realId = avatars[avatarId].user.user_id.toString();
+    
+    if (!statsData.targets) statsData.targets = {};
+    statsData.targets[realId] = (statsData.targets[realId] || 0) + 1;
+}
+
+// Добавить финального аватара (на ком завершили игру)
+function addFinalAvatar(avatarId) {
+    const realId = avatars[avatarId].user.user_id.toString();
+    
+    if (!statsData.finals) statsData.finals = {};
+    statsData.finals[realId] = (statsData.finals[realId] || 0) + 1;
+}
+
+// Инициализировать всех аватаров в статистике
+function initAllAvatarsInStats() {
+    if (!statsData.targets) statsData.targets = {};
+    if (!statsData.finals) statsData.finals = {};
+    
+    for (let i = 0; i < avatars.length; i++) {
+        const realId = avatars[i].user.user_id.toString();
+        if (!statsData.targets[realId]) {
+            statsData.targets[realId] = 0;
+        }
+        if (!statsData.finals[realId]) {
+            statsData.finals[realId] = 0;
+        }
+    }
+}
+
+// Увеличить счётчик игр и общее количество очков
+function incrementTotalGames(score) {
+    statsData.totalGames++;
+    statsData.totalScore += score;
+}
+
+// ============= ПРАВИЛА =============
+function showRules() {
+    rulesModal.fadeIn(200);
+}
+
+function hideRules() {
+    rulesModal.fadeOut(200);
+    localStorage.setItem(RULES_SEEN_KEY, 'true');
+}
+
+// ============= ЗАВЕРШЕНИЕ ИГРЫ ДОСРОЧНО =============
+async function forceEndGame() {
+    if (!gameState.isRunning) return;
+    
+    gameState.isRunning = false;
+    gameState.isShooting = false;
+    gameState.gameEndReason = 'manual';
+    
+    const playerId = getCurrentPlayerId();
+    
+    updatePlayerStats(playerId, gameState.score);
+    incrementTotalGames(gameState.score);
+    
+    await saveStats();
+    
+    overlayScore.text(gameState.score);
+    overlayPairs.text(gameState.pairs.length);
+    overlayTitle.text('Игра завершена');
+    overlayReason.text('Вы досрочно завершили игру');
+    
+    gameOverlay.fadeIn(200);
+}
+
+// ==============================================
+
+function createLoadingScreen() {
+    loadingScreen = $(`
+        <div id="loadingScreen">
+            <div style="font-size: 28px; margin-bottom: 24px; color: rgb(var(--primary400)); font-weight: bold;">
+                Загрузка аватаров...
+            </div>
+            <div style="width: 300px; height: 16px; background: rgba(var(--light100), 0.2); border-radius: 4px; overflow: hidden;">
+                <div id="loadingBar"></div>
+            </div>
+            <div id="loadingText" style="font-size: 14px; margin-top: 12px;">0%</div>
+        </div>
+    `);
+    $('body').append(loadingScreen);
+}
+
+function updateLoadingProgress() {
+    const percentage = totalAvatars > 0 ? Math.round((loadedAvatars / totalAvatars) * 100) : 0;
+    $('#loadingBar').css('width', percentage + '%');
+    $('#loadingText').text(`${percentage}% (${loadedAvatars} из ${totalAvatars})`);
+    
+    if (loadedAvatars >= totalAvatars && totalAvatars > 0) {
+        setTimeout(() => {
+            if (loadingScreen) {
+                loadingScreen.fadeOut(300, function() { $(this).remove(); });
+            }
+            startBtn.prop('disabled', false);
+        }, 300);
+    }
+}
+
+// ============= КЛАСС АВАТАРА =============
+class Avatar {
+    constructor(user, index) {
+        this.id = index;
+        this.user = user;
+        
+        if (!containerInitialized) {
+            updateContainerSize();
+        }
+        
+        this.size = 45;
+        this.x = Math.random() * (containerWidth - this.size) + this.size/2;
+        this.y = Math.random() * (containerHeight - this.size) + this.size/2;
+        
+        const angle = Math.random() * Math.PI * 2;
+        this.vx = Math.cos(angle) * BASE_SPEED;
+        this.vy = Math.sin(angle) * BASE_SPEED;
+        
+        this.isPaired = false;
+        this.pairId = null;
+        this.element = null;
+        this.isLoaded = false;
+        this.isHighlighted = false;
+        
+        this.createElement();
+    }
+    
+    createElement() {
+        const div = document.createElement('div');
+        div.className = 'avatar';
+        div.dataset.id = this.id;
+        div.title = this.user.username;
+        
+        div.style.width = this.size + 'px';
+        div.style.height = this.size + 'px';
+        
+        totalAvatars++;
+        updateLoadingProgress();
+        
+        const img = new Image();
+        img.onload = () => {
+            div.style.backgroundImage = `url(${img.src})`;
+            this.isLoaded = true;
+            loadedAvatars++;
+            updateLoadingProgress();
+        };
+        
+        img.onerror = () => {
+            div.classList.add('fallback');
+            div.textContent = this.user.username.charAt(0).toUpperCase();
+            this.isLoaded = true;
+            loadedAvatars++;
+            updateLoadingProgress();
+        };
+        
+        img.src = mainUrl + this.user.avatar;
+        userDiv.append(div);
+        this.element = div;
+    }
+    
+    updatePosition(deltaTime) {
+        if (!this.isLoaded || !gameState.isRunning) return;
+        
+        this.x += this.vx * deltaTime;
+        this.y += this.vy * deltaTime;
+        
+        const halfSize = this.size / 2;
+        
+        if (this.x < halfSize) {
+            this.vx = Math.abs(this.vx) * config.speedReductionOnBounce;
+            this.x = halfSize;
+        } else if (this.x > containerWidth - halfSize) {
+            this.vx = -Math.abs(this.vx) * config.speedReductionOnBounce;
+            this.x = containerWidth - halfSize;
+        }
+        
+        if (this.y < halfSize) {
+            this.vy = Math.abs(this.vy) * config.speedReductionOnBounce;
+            this.y = halfSize;
+        } else if (this.y > containerHeight - halfSize) {
+            this.vy = -Math.abs(this.vy) * config.speedReductionOnBounce;
+            this.y = containerHeight - halfSize;
+        }
+        
+        if (Math.random() < 0.005) {
+            this.vx += (Math.random() - 0.5) * 4;
+            this.vy += (Math.random() - 0.5) * 4;
+            
+            const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            const maxSpeed = this.isPaired ? BASE_SPEED * 0.6 : BASE_SPEED * 1.3;
+            if (speed > maxSpeed) {
+                this.vx = (this.vx / speed) * maxSpeed;
+                this.vy = (this.vy / speed) * maxSpeed;
+            }
+        }
+        
+        if (this.element) {
+            this.element.style.transform = `translate3d(${Math.round(this.x - halfSize)}px, ${Math.round(this.y - halfSize)}px, 0)`;
+        }
+    }
+    
+    checkCrosshairHit(cx, cy) {
+        const dx = this.x - cx;
+        const dy = this.y - cy;
+        return (dx * dx + dy * dy) < (this.size/2) * (this.size/2);
+    }
+    
+    markAsPaired(pairId) {
+        this.isPaired = true;
+        this.pairId = pairId;
+        if (this.element) {
+            this.element.classList.add('paired');
+        }
+        this.vx *= config.speedReductionOnPair;
+        this.vy *= config.speedReductionOnPair;
+    }
+    
+    highlight() {
+        if (this.element && !this.isHighlighted) {
+            this.element.classList.add('highlighted');
+            this.isHighlighted = true;
+        }
+    }
+    
+    unhighlight() {
+        if (this.element && this.isHighlighted) {
+            this.element.classList.remove('highlighted');
+            this.isHighlighted = false;
+        }
+    }
+    
+    reset() {
+        if (this.element && this.element.parentNode) {
+            this.element.parentNode.removeChild(this.element);
+        }
+        this.element = null;
+        this.isLoaded = false;
+    }
+}
+
+// ============= ЗАГРУЗКА ПОЛЬЗОВАТЕЛЕЙ =============
+async function loadUsers() {
+    return new Promise((resolve) => {
+        const url = new URL(mainUrl + "/api.php");
+        url.searchParams.append("method", "users.get");
+        url.searchParams.append("limit", config.avatarCount);
+        url.searchParams.append("group_id", [1,2,6]);
+        url.searchParams.append("fields", ["user_id", "username", "avatar"]);
+        
+        $.ajax({
+            url: url.href,
+            method: 'post',
+            dataType: 'json',
+            success: function(data) {
+                if (data.response?.users) {
+                    users = data.response.users.slice(0, config.avatarCount);
+                }
+                resolve();
+            },
+            error: function() {
+                users = Array.from({length: config.avatarCount}, (_, i) => ({
+                    user_id: 1000 + i,
+                    username: `User${i + 1}`,
+                    avatar: '/images/avatar.png'
+                }));
+                resolve();
+            }
+        });
+    });
+}
+
+async function createAvatars() {
+    userDiv.empty();
+    avatars.forEach(a => a.reset());
+    avatars = [];
+    loadedAvatars = 0;
+    totalAvatars = 0;
+    
+    for (let i = 0; i < Math.min(users.length, config.avatarCount); i++) {
+        avatars.push(new Avatar(users[i], i));
+    }
+}
+
+function waitForAvatarsToLoad() {
+    return new Promise((resolve) => {
+        const check = setInterval(() => {
+            if (loadedAvatars >= totalAvatars && totalAvatars > 0) {
+                clearInterval(check);
+                resolve();
+            }
+        }, 50);
+    });
+}
+
+// ============= ФИЗИКА =============
+function updatePhysics(deltaTime) {
+    for (let i = 0; i < avatars.length; i++) {
+        avatars[i].updatePosition(deltaTime);
+    }
+}
+
+function updateCrosshairPosition(deltaTime) {
+    let dx = 0, dy = 0;
+    
+    if (keysPressed.w || keysPressed.ц) dy -= 1;
+    if (keysPressed.s || keysPressed.ы) dy += 1;
+    if (keysPressed.a || keysPressed.ф) dx -= 1;
+    if (keysPressed.d || keysPressed.в) dx += 1;
+    
+    if (dx !== 0 && dy !== 0) {
+        dx *= 0.7071;
+        dy *= 0.7071;
+    }
+    
+    crosshairPos.x += dx * CROSSHAIR_SPEED * deltaTime;
+    crosshairPos.y += dy * CROSSHAIR_SPEED * deltaTime;
+    
+    crosshairPos.x = Math.max(20, Math.min(crosshairPos.x, containerWidth - 20));
+    crosshairPos.y = Math.max(20, Math.min(crosshairPos.y, containerHeight - 20));
+    
+    crosshair.css({
+        left: crosshairPos.x + 'px',
+        top: crosshairPos.y + 'px'
+    });
+    
+    document.documentElement.style.setProperty('--crosshair-x', crosshairPos.x + 'px');
+    document.documentElement.style.setProperty('--crosshair-y', crosshairPos.y + 'px');
+}
+
+function checkTargetUnderCrosshair() {
+    if (gameState.highlightedAvatar) {
+        gameState.highlightedAvatar.unhighlight();
+        gameState.highlightedAvatar = null;
+    }
+    
+    let found = null;
+    for (let i = 0; i < avatars.length; i++) {
+        const a = avatars[i];
+        if (!a.isLoaded) continue;
+        
+        if (a.checkCrosshairHit(crosshairPos.x, crosshairPos.y)) {
+            found = a;
+            break;
+        }
+    }
+    
+    if (found) {
+        gameState.currentTarget = found;
+        gameState.highlightedAvatar = found;
+        found.highlight();
+        
+        if (found.isPaired) {
+            currentTargetName.text(found.user.username);
+            targetIndicator.removeClass('free-target').addClass('paired-target');
+        } else {
+            currentTargetName.text(found.user.username);
+            targetIndicator.removeClass('paired-target').addClass('free-target');
+        }
+        targetIndicator.show();
+    } else {
+        gameState.currentTarget = null;
+        targetIndicator.hide();
+    }
+}
+
+// ============= ИГРОВОЙ ЦИКЛ =============
+function gameLoop(currentTime) {
+    if (!gameState.isRunning) {
+        animationFrameId = requestAnimationFrame(gameLoop);
+        return;
+    }
+    
+    if (lastTimestamp === 0) {
+        lastTimestamp = currentTime;
+        animationFrameId = requestAnimationFrame(gameLoop);
+        return;
+    }
+    
+    let deltaTime = (currentTime - lastTimestamp) / 1000;
+    lastTimestamp = currentTime;
+    
+    if (deltaTime > 0.033) deltaTime = 0.033;
+    
+    if (Math.random() < 0.05) updateContainerSize();
+    
+    physicsAccumulator += deltaTime;
+    
+    if (physicsAccumulator >= PHYSICS_STEP) {
+        updatePhysics(PHYSICS_STEP);
+        physicsAccumulator -= PHYSICS_STEP;
+        if (physicsAccumulator > 0.1) physicsAccumulator = 0;
+    }
+    
+    if (!gameState.isShooting) {
+        updateCrosshairPosition(deltaTime);
+        checkTargetUnderCrosshair();
+    }
+    
+    animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+// ============= УПРАВЛЕНИЕ =============
+function initKeyboardControls() {
+    $(document).off('keydown').on('keydown', function(e) {
+        const key = e.key.toLowerCase();
+        
+        if (gameState.isShooting) {
+            e.preventDefault();
+            return;
+        }
+        
+        if (['w','s','a','d','ц','ы','ф','в'].includes(key)) {
+            keysPressed[key] = true;
+            e.preventDefault();
+        }
+        
+        if (e.code === 'Space' || e.key === ' ') {
+            e.preventDefault();
+            if (gameState.isRunning && !gameState.isShooting && gameState.shots < 2 && gameState.currentTarget) {
+                shoot();
+            }
+        }
+    });
+    
+    $(document).off('keyup').on('keyup', function(e) {
+        const key = e.key.toLowerCase();
+        if (['w','s','a','d','ц','ы','ф','в'].includes(key)) {
+            keysPressed[key] = false;
+        }
+        if (e.code === 'Space' || e.key === ' ') {
+            e.preventDefault();
+        }
+    });
+    
+    $(window).off('keydown').on('keydown', function(e) {
+        if (e.code === 'Space' || e.key === ' ') {
+            e.preventDefault();
+            return false;
+        }
+    });
+}
+
+// ============= ИГРОВАЯ ЛОГИКА =============
+function areAllAvatarsPaired() {
+    for (let i = 0; i < avatars.length; i++) {
+        if (!avatars[i].isPaired) return false;
+    }
+    return true;
+}
+
+function shoot() {
+    if (gameState.isShooting || gameState.shots >= 2 || !gameState.currentTarget) return;
+    
+    gameState.isShooting = true;
+    const hit = gameState.currentTarget;
+    
+    addTargetHit(hit.id);
+    
+    if (hit.isPaired) {
+        gameState.gameEndReason = 'paired';
+        gameState.gameEndedByAvatar = hit;
+        addFinalAvatar(hit.id);
+        setTimeout(() => {
+            gameState.isShooting = false;
+            endGame();
+        }, 50);
+        return;
+    }
+    
+    if (gameState.selectedAvatars.includes(hit.id)) {
+        gameState.isShooting = false;
+        return;
+    }
+    
+    shotEffect.css({
+        left: crosshairPos.x + 'px',
+        top: crosshairPos.y + 'px',
+        opacity: 1
+    }).stop().animate({ opacity: 0 }, 200);
+    
+    gameState.selectedAvatars.push(hit.id);
+    gameState.shots++;
+    shotsCountEl.text(`${gameState.shots}/2`);
+    
+    if (gameState.shots === 1) {
+        target1El.text(hit.user.username);
+        gameState.currentTargets[0] = hit;
+    } else {
+        target2El.text(hit.user.username);
+        gameState.currentTargets[1] = hit;
+        createPair();
+        
+        setTimeout(() => {
+            gameState.selectedAvatars = [];
+            gameState.shots = 0;
+            gameState.currentTargets = [null, null];
+            target1El.text("-");
+            target2El.text("-");
+            shotsCountEl.text("0/2");
+            
+            if (areAllAvatarsPaired()) {
+                gameState.gameEndReason = 'victory';
+                endGame();
+            }
+        }, 800);
+    }
+    
+    addScore(config.shotPoints);
+    setTimeout(() => { gameState.isShooting = false; }, 200);
+}
+
+function createPair() {
+    const [a1, a2] = gameState.currentTargets;
+    if (!a1 || !a2) return;
+    
+    const pairId = gameState.pairs.length;
+    a1.markAsPaired(pairId);
+    a2.markAsPaired(pairId);
+    
+    gameState.pairs.push({
+        id: pairId,
+        avatar1: a1,
+        avatar2: a2
+    });
+    
+    addPairToStats(a1.id, a2.id);
+    
+    const item = $(`
+        <div class="pair-item">
+            <div class="pair-names">${a1.user.username} ❤️ ${a2.user.username}</div>
+        </div>
+    `);
+    pairsListEl.append(item);
+    pairsListEl.scrollTop(pairsListEl[0].scrollHeight);
+    
+    pairsCountEl.text(gameState.pairs.length);
+    pairsCountSmall.text(gameState.pairs.length);
+    addScore(config.pairPoints);
+}
+
+function addScore(points) {
+    gameState.score += points;
+    scoreEl.text(gameState.score);
+    
+    const anim = $(`<div class="score-animation">+${points}</div>`);
+    anim.css({ left: crosshairPos.x + 'px', top: crosshairPos.y + 'px' })
+        .appendTo(userDiv);
+    setTimeout(() => anim.remove(), 1000);
+}
+
+// ============= КОНЕЦ ИГРЫ =============
+async function endGame() {
+    gameState.isRunning = false;
+    gameState.isShooting = false;
+    
+    const playerId = getCurrentPlayerId();
+    
+    updatePlayerStats(playerId, gameState.score);
+    incrementTotalGames(gameState.score);
+    
+    await saveStats();
+    
+    overlayScore.text(gameState.score);
+    overlayPairs.text(gameState.pairs.length);
+    
+    if (gameState.gameEndReason === 'victory') {
+        overlayTitle.text('Победа!');
+        overlayReason.text('Вы соединили всех аватаров в пары!');
+    } else if (gameState.gameEndReason === 'manual') {
+        overlayTitle.text('Игра завершена');
+        overlayReason.text('Вы досрочно завершили игру');
+    } else {
+        overlayTitle.text('Игра окончена!');
+        overlayReason.text('Вы попали в уже занятого игрока');
+    }
+    
+    gameOverlay.fadeIn(200);
+}
+
+// ============= ПЕРЕЗАПУСК =============
+function restartGame() {
+    gameOverlay.fadeOut(200);
+    startGame();
+}
+
+// ============= ЗАПУСК ИГРЫ =============
+async function startGame() {
+    gameOverlay.hide();
+    
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+    
+    gameState = {
+        isRunning: false,
+        currentTargets: [null, null],
+        pairs: [],
+        score: 0,
+        shots: 0,
+        selectedAvatars: [],
+        currentTarget: null,
+        highlightedAvatar: null,
+        isShooting: false,
+        gameEndReason: null,
+        gameEndedByAvatar: null
+    };
+    
+    for (let key in keysPressed) {
+        keysPressed[key] = false;
+    }
+    
+    scoreEl.text("0");
+    pairsCountEl.text("0");
+    pairsCountSmall.text("0");
+    shotsCountEl.text("0/2");
+    target1El.text("-");
+    target2El.text("-");
+    pairsListEl.empty();
+    
+    createLoadingScreen();
+    
+    startBtn.prop('disabled', true);
+    
+    if (users.length === 0) await loadUsers();
+    await createAvatars();
+    await waitForAvatarsToLoad();
+    
+    initAllAvatarsInStats();
+    updateContainerSize();
+    
+    crosshairPos.x = containerWidth / 2;
+    crosshairPos.y = containerHeight / 2;
+    crosshair.css({ left: crosshairPos.x + 'px', top: crosshairPos.y + 'px' });
+    updateCrosshairPosition(0);
+    
+    lastTimestamp = 0;
+    physicsAccumulator = 0;
+    
+    gameState.isRunning = true;
+    startBtn.text("Перезапуск").prop('disabled', false);
+    
+    animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+// ============= УПРАВЛЕНИЕ С ТЕЛЕФОНА =============
+$("#arrowUp").on('touchstart mousedown', function(e) {
+    e.preventDefault();
+    keysPressed.w = true;
+}).on('touchend mouseup mouseleave', function(e) {
+    e.preventDefault();
+    keysPressed.w = false;
+});
+
+$("#arrowDown").on('touchstart mousedown', function(e) {
+    e.preventDefault();
+    keysPressed.s = true;
+}).on('touchend mouseup mouseleave', function(e) {
+    e.preventDefault();
+    keysPressed.s = false;
+});
+
+$("#arrowLeft").on('touchstart mousedown', function(e) {
+    e.preventDefault();
+    keysPressed.a = true;
+}).on('touchend mouseup mouseleave', function(e) {
+    e.preventDefault();
+    keysPressed.a = false;
+});
+
+$("#arrowRight").on('touchstart mousedown', function(e) {
+    e.preventDefault();
+    keysPressed.d = true;
+}).on('touchend mouseup mouseleave', function(e) {
+    e.preventDefault();
+    keysPressed.d = false;
+});
+
+$("#shootBtn").on('touchstart click', function(e) {
+    e.preventDefault();
+    if (gameState.isRunning && !gameState.isShooting && gameState.shots < 2 && gameState.currentTarget) {
+        shoot();
+    }
+});
+
+// ============= ИНИЦИАЛИЗАЦИЯ =============
+async function init() {
+    await loadStats();
+    
+    startBtn.text("Запустить игру").prop('disabled', false);
+    
+    // Правила
+    if (!localStorage.getItem(RULES_SEEN_KEY)) {
+        showRules();
+    }
+    
+    rulesBtn.on('click', showRules);
+    closeRulesBtn.on('click', hideRules);
+    
+    // Завершение игры
+    endGameBtn.on('click', forceEndGame);
+    
+    restartGameBtn.on('click', restartGame);
+    continueBtn.on('click', () => gameOverlay.fadeOut(200));
+    
+    await loadUsers();
+    initKeyboardControls();
+    startBtn.on('click', startGame);
+}
+
+$(document).ready(init);
+</script>

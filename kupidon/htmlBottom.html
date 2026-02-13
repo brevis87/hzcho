@@ -1,0 +1,347 @@
+<!-- КУПИДОН -->
+<script>
+
+   // ============= КОНСТАНТЫ =============
+    const CUPID_APP_ID = 16777213;
+    const CUPID_STORAGE_KEY = 'cupid_stats';
+    const CUPID_MAIN_URL = "https://pulseofny.rusff.me";
+    
+    let CUPID_userMap = {};
+    let CUPID_usersLoaded = false;
+
+    // ============= ТОЧНО ТАКОЙ ЖЕ ЗАПРОС ПОЛЬЗОВАТЕЛЕЙ, КАК В ИГРЕ =============
+    async function CUPID_loadUsers() {
+        console.log('🔍 CUPID: Загружаем пользователей...');
+        
+        if (CUPID_usersLoaded) {
+            console.log(`✅ CUPID: Пользователи уже загружены (${Object.keys(CUPID_userMap).length} шт)`);
+            return CUPID_userMap;
+        }
+        
+        return new Promise((resolve) => {
+            const url = new URL(CUPID_MAIN_URL + "/api.php");
+            url.searchParams.append("method", "users.get");
+            url.searchParams.append("limit", 500); // config.avatarCount = 500
+            url.searchParams.append("group_id", [1,2,6]);
+            url.searchParams.append("fields", ["user_id", "username", "avatar"]);
+            
+            $.ajax({
+                url: url.href,
+                method: 'post',
+                dataType: 'json',
+                success: function(data) {
+                    console.log('📦 CUPID: Ответ от users.get:', data);
+                    
+                    if (data.response?.users) {
+                        const users = data.response.users.slice(0, 500);
+                        console.log(`👥 CUPID: Получено ${users.length} пользователей`);
+                        
+                        // Показываем первых 3 для примера
+                        users.slice(0, 3).forEach((u, i) => {
+                            console.log(`   Пример ${i+1}: user_id=${u.user_id}, username=${u.username}`);
+                        });
+                        
+                        // Заполняем Map
+                        users.forEach(u => {
+                            CUPID_userMap[u.user_id.toString()] = u.username;
+                        });
+                        
+                        CUPID_usersLoaded = true;
+                        console.log(`✅ CUPID: Загружено ${Object.keys(CUPID_userMap).length} пользователей в Map`);
+                    } else {
+                        console.warn('⚠️ CUPID: Нет пользователей в ответе');
+                        
+                        // Создаём тестовых пользователей, как в игре
+                        console.log('🧪 CUPID: Создаём тестовых пользователей');
+                        for (let i = 0; i < 500; i++) {
+                            const id = (1000 + i).toString();
+                            CUPID_userMap[id] = `User${i + 1}`;
+                        }
+                        CUPID_usersLoaded = true;
+                    }
+                    
+                    resolve(CUPID_userMap);
+                },
+                error: function(err) {
+                    console.error('❌ CUPID: Ошибка загрузки пользователей', err);
+                    
+                    // Создаём тестовых пользователей при ошибке, как в игре
+                    console.log('🧪 CUPID: Создаём тестовых пользователей (ошибка API)');
+                    for (let i = 0; i < 500; i++) {
+                        const id = (1000 + i).toString();
+                        CUPID_userMap[id] = `User${i + 1}`;
+                    }
+                    CUPID_usersLoaded = true;
+                    
+                    resolve(CUPID_userMap);
+                }
+            });
+        });
+    }
+
+    // ============= ЗАГРУЗКА СТАТИСТИКИ =============
+    async function CUPID_loadStats() {
+        console.log('🔍 CUPID: Загружаем статистику из хранилища...');
+        
+        try {
+            const response = await $.get("/api.php", {
+                token: ForumAPITicket,
+                method: "storage.get",
+                app_id: CUPID_APP_ID,
+                key: [CUPID_STORAGE_KEY]
+            });
+            
+            console.log('📦 CUPID: Ответ от storage.get:', response);
+            
+            if (response.response?.storage?.data?.[CUPID_STORAGE_KEY]) {
+                const rawData = response.response.storage.data[CUPID_STORAGE_KEY];
+                console.log('📊 CUPID: Сырые данные статистики (первые 200 символов):', rawData.substring(0, 200));
+                
+                const parsed = JSON.parse(rawData);
+                console.log('📊 CUPID: Распарсеная статистика:', {
+                    totalGames: parsed.totalGames,
+                    totalScore: parsed.totalScore,
+                    playersCount: Object.keys(parsed.players || {}).length,
+                    pairsCount: Object.keys(parsed.pairs || {}).length,
+                    targetsCount: Object.keys(parsed.targets || {}).length,
+                    finalsCount: Object.keys(parsed.finals || {}).length
+                });
+                
+                // Показываем примеры ID из статистики
+                if (parsed.players) {
+                    console.log('   Примеры ID игроков:', Object.keys(parsed.players).slice(0, 5));
+                }
+                if (parsed.targets) {
+                    console.log('   Примеры ID целей:', Object.keys(parsed.targets).slice(0, 5));
+                }
+                if (parsed.finals) {
+                    console.log('   Примеры ID финалов:', Object.keys(parsed.finals).slice(0, 5));
+                }
+                
+                return parsed;
+            } else {
+                console.warn('⚠️ CUPID: Нет данных в хранилище');
+            }
+        } catch (e) {
+            console.error('❌ CUPID: Ошибка загрузки статистики', e);
+        }
+        
+        return {
+            totalGames: 0,
+            totalScore: 0,
+            players: {},
+            pairs: {},
+            targets: {},
+            finals: {}
+        };
+    }
+
+    // ============= ОБОГАЩЕНИЕ ДАННЫХ ИМЕНАМИ =============
+    function CUPID_enrichData(stats, userMap) {
+        console.log('🔍 CUPID: Начинаем обогащение данных именами...');
+        console.log('   userMap содержит:', Object.keys(userMap).length, 'записей');
+        console.log('   Примеры из userMap (первые 5):', Object.entries(userMap).slice(0, 5));
+        
+        // Обогащаем игроков
+        console.log('   🔄 Обрабатываем players...');
+        const enrichedPlayers = {};
+        let playersFound = 0, playersNotFound = 0;
+        
+        Object.entries(stats.players || {}).forEach(([id, data]) => {
+            const idStr = id.toString();
+            const name = userMap[idStr];
+            
+            if (name) {
+                enrichedPlayers[name] = data;
+                playersFound++;
+                // console.log(`      ✅ ${idStr} -> ${name}`);
+            } else {
+                // Пробуем найти без преобразования
+                const name2 = userMap[id];
+                if (name2) {
+                    enrichedPlayers[name2] = data;
+                    playersFound++;
+                    console.log(`      ✅ ${id} (без toString) -> ${name2}`);
+                } else {
+                    enrichedPlayers[id] = data;
+                    playersNotFound++;
+                    console.warn(`      ⚠️ ID игрока ${id} не найден в userMap`);
+                }
+            }
+        });
+        console.log(`   ✅ Players: найдено ${playersFound}, не найдено ${playersNotFound}, всего ${Object.keys(enrichedPlayers).length}`);
+        
+        // Обогащаем пары
+        console.log('   🔄 Обрабатываем pairs...');
+        const enrichedPairs = {};
+        let pairsFound = 0, pairsNotFound = 0;
+        
+        Object.entries(stats.pairs || {}).forEach(([key, count]) => {
+            const [id1, id2] = key.split('-');
+            const id1Str = id1.toString();
+            const id2Str = id2.toString();
+            
+            const name1 = userMap[id1Str] || userMap[id1] || id1;
+            const name2 = userMap[id2Str] || userMap[id2] || id2;
+            
+            enrichedPairs[`${name1}-${name2}`] = count;
+            
+            if (!userMap[id1Str] && !userMap[id1]) {
+                pairsNotFound++;
+                console.warn(`      ⚠️ ID пары ${id1} не найден в userMap`);
+            }
+            if (!userMap[id2Str] && !userMap[id2]) {
+                pairsNotFound++;
+                console.warn(`      ⚠️ ID пары ${id2} не найден в userMap`);
+            }
+            pairsFound++;
+        });
+        console.log(`   ✅ Pairs: обработано ${pairsFound}, не найдено ${pairsNotFound}, всего ${Object.keys(enrichedPairs).length}`);
+        
+        // Обогащаем цели
+        console.log('   🔄 Обрабатываем targets...');
+        const enrichedTargets = {};
+        let targetsFound = 0, targetsNotFound = 0;
+        
+        Object.entries(stats.targets || {}).forEach(([id, count]) => {
+            const idStr = id.toString();
+            const name = userMap[idStr] || userMap[id] || id;
+            
+            enrichedTargets[name] = count;
+            
+            if (userMap[idStr] || userMap[id]) {
+                targetsFound++;
+            } else {
+                targetsNotFound++;
+                console.warn(`      ⚠️ ID цели ${id} не найден в userMap`);
+            }
+        });
+        console.log(`   ✅ Targets: найдено ${targetsFound}, не найдено ${targetsNotFound}, всего ${Object.keys(enrichedTargets).length}`);
+        
+        // Обогащаем финалы
+        console.log('   🔄 Обрабатываем finals...');
+        const enrichedFinals = {};
+        let finalsFound = 0, finalsNotFound = 0;
+        
+        Object.entries(stats.finals || {}).forEach(([id, count]) => {
+            const idStr = id.toString();
+            const name = userMap[idStr] || userMap[id] || id;
+            
+            enrichedFinals[name] = count;
+            
+            if (userMap[idStr] || userMap[id]) {
+                finalsFound++;
+            } else {
+                finalsNotFound++;
+                console.warn(`      ⚠️ ID финала ${id} не найден в userMap`);
+            }
+        });
+        console.log(`   ✅ Finals: найдено ${finalsFound}, не найдено ${finalsNotFound}, всего ${Object.keys(enrichedFinals).length}`);
+        
+        const result = {
+            ...stats,
+            players: enrichedPlayers,
+            pairs: enrichedPairs,
+            targets: enrichedTargets,
+            finals: enrichedFinals
+        };
+        
+        console.log('✅ CUPID: Обогащение завершено');
+        console.log('   Примеры результата - players (первые 5):', Object.keys(result.players).slice(0, 5));
+        console.log('   Примеры результата - targets (первые 5):', Object.keys(result.targets).slice(0, 5));
+        
+        return result;
+    }
+
+    // ============= ПРОВЕРКА СТАТИСТИКИ =============
+    function CUPID_validateStats(stats) {
+        console.log('🔍 CUPID: Проверка статистики перед отправкой...');
+        
+        if (stats.players) {
+            const playerKeys = Object.keys(stats.players);
+            const numericKeys = playerKeys.filter(k => /^\d+$/.test(k));
+            if (numericKeys.length > 0) {
+                console.warn(`⚠️ CUPID: В players остались числовые ID: ${numericKeys.slice(0, 5)}`);
+            } else {
+                console.log('✅ CUPID: Все ключи players — имена');
+            }
+        }
+        
+        if (stats.targets) {
+            const targetKeys = Object.keys(stats.targets);
+            const numericKeys = targetKeys.filter(k => /^\d+$/.test(k));
+            if (numericKeys.length > 0) {
+                console.warn(`⚠️ CUPID: В targets остались числовые ID: ${numericKeys.slice(0, 5)}`);
+            } else {
+                console.log('✅ CUPID: Все ключи targets — имена');
+            }
+        }
+        
+        if (stats.finals) {
+            const finalKeys = Object.keys(stats.finals);
+            const numericKeys = finalKeys.filter(k => /^\d+$/.test(k));
+            if (numericKeys.length > 0) {
+                console.warn(`⚠️ CUPID: В finals остались числовые ID: ${numericKeys.slice(0, 5)}`);
+            } else {
+                console.log('✅ CUPID: Все ключи finals — имена');
+            }
+        }
+    }
+
+    // ============= ОБРАБОТЧИК СООБЩЕНИЙ =============
+    window.addEventListener('message', async function(event) {
+        console.log('📨 CUPID: Получено сообщение от фрейма', event.data?.type, event.data?.requestId);
+        
+        if (event.data?.CUPID_stats && event.data.type === "CUPID_request") {
+            console.log('🎯 CUPID: Обрабатываем запрос статистики');
+            
+            try {
+                console.log('⏳ CUPID: Загружаем пользователей...');
+                const userMap = await CUPID_loadUsers();
+                
+                console.log('⏳ CUPID: Загружаем статистику...');
+                const stats = await CUPID_loadStats();
+                
+                console.log('⏳ CUPID: Обогащаем данные...');
+                const enriched = CUPID_enrichData(stats, userMap);
+                
+                console.log('⏳ CUPID: Проверяем данные...');
+                CUPID_validateStats(enriched);
+                
+                console.log('📤 CUPID: Отправляем ответ фрейму');
+                console.log('   players:', Object.keys(enriched.players).length, 'записей');
+                console.log('   pairs:', Object.keys(enriched.pairs).length, 'записей');
+                console.log('   targets:', Object.keys(enriched.targets).length, 'записей');
+                console.log('   finals:', Object.keys(enriched.finals).length, 'записей');
+                
+                event.source.postMessage({
+                    CUPID_stats: true,
+                    type: "CUPID_response",
+                    requestId: event.data.requestId,
+                    data: enriched
+                }, event.origin);
+                
+                console.log('✅ CUPID: Ответ отправлен');
+                
+            } catch (error) {
+                console.error('❌ CUPID: Ошибка обработки запроса', error);
+                event.source.postMessage({
+                    CUPID_stats: true,
+                    type: "CUPID_response",
+                    requestId: event.data.requestId,
+                    data: null
+                }, event.origin);
+            }
+        }
+    });
+    
+    console.log('🚀 CUPID: Обработчик статистики инициализирован');
+    console.log('🌐 CUPID: Main URL =', CUPID_MAIN_URL);
+    
+    // Предзагружаем пользователей при старте
+    console.log('⏳ CUPID: Предзагрузка пользователей...');
+    CUPID_loadUsers();
+
+</script>
+
+<!-- КУПИДОН -->
