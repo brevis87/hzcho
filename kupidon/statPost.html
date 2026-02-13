@@ -108,7 +108,6 @@
                         <th>#</th>
                         <th>Аватар</th>
                         <th class="text-right">Попаданий</th>
-                        <th class="text-center">Статус</th>
                     </tr>
                 </thead>
                 <tbody id="cupid-targets-table-body">
@@ -667,20 +666,11 @@
         // Таблица со ВСЕМИ целями
         let html = '';
         targetsList.forEach(([name, count], i) => {
-            let statusBadge = '';
-            if (count === 0) {
-                statusBadge = '<span class="status-badge status-ghost">👻 НЕУЛОВИМЫЙ</span>';
-            } else if (i === 0) {
-                statusBadge = '<span class="status-badge status-top1">🎯 ТОП-1</span>';
-            } else if (i < 3) {
-                statusBadge = '<span class="status-badge status-top3">⭐ ТОП-3</span>';
-            }
             
             html += `<tr>
                 <td>${i + 1}</td>
                 <td class="font-bold">${name}</td>
                 <td class="text-right blue-text font-bold">${count}</td>
-                <td class="text-center">${statusBadge}</td>
             </tr>`;
         });
         tbody.innerHTML = html;
@@ -745,3 +735,4 @@
 
 [/html]
 [hideprofile]
+
