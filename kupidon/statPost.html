@@ -6,9 +6,9 @@
     <div class="cupid-card">
         <h2 class="cupid-gold">📊 ОБЩАЯ СТАТИСТИКА</h2>
         <div class="stats-row">
-            <p>🎮 Всего игр: <b id="cupid-total-games">0</b></p>
-            <p>🏆 Всего очков: <b id="cupid-total-score">0</b></p>
-            <p>📈 Средний результат: <b id="cupid-avg-score">0</b></p>
+            <p>Всего игр: <b id="cupid-total-games">0</b></p>
+            <p>Всего очков: <b id="cupid-total-score">0</b></p>
+            <p>Средний результат: <b id="cupid-avg-score">0</b></p>
         </div>
     </div>
 
@@ -19,19 +19,19 @@
         <!-- МЕДАЛИ ТОП-3 -->
         <div class="medals-container">
             <div id="cupid-medal-1" class="medal-card medal-gold" style="display: none;">
-                <span class="medal-emoji">🥇</span>
+                <span class="medal-emoji"></span>
                 <div class="medal-name" id="cupid-medal-1-name"></div>
                 <div class="medal-score" id="cupid-medal-1-score"></div>
                 <div class="medal-stats" id="cupid-medal-1-stats"></div>
             </div>
             <div id="cupid-medal-2" class="medal-card medal-silver" style="display: none;">
-                <span class="medal-emoji">🥈</span>
+                <span class="medal-emoji"></span>
                 <div class="medal-name" id="cupid-medal-2-name"></div>
                 <div class="medal-score" id="cupid-medal-2-score"></div>
                 <div class="medal-stats" id="cupid-medal-2-stats"></div>
             </div>
             <div id="cupid-medal-3" class="medal-card medal-bronze" style="display: none;">
-                <span class="medal-emoji">🥉</span>
+                <span class="medal-emoji"></span>
                 <div class="medal-name" id="cupid-medal-3-name"></div>
                 <div class="medal-score" id="cupid-medal-3-score"></div>
                 <div class="medal-stats" id="cupid-medal-3-stats"></div>
@@ -84,14 +84,14 @@
         
         <div class="target-highlights">
             <div id="cupid-target-top" class="target-card" style="display: none;">
-                <div class="target-emoji">🎯</div>
+                <div class="target-emoji"></div>
                 <div class="target-name" id="cupid-target-top-name"></div>
                 <div class="target-count" id="cupid-target-top-count"></div>
                 <div class="gray-text">попаданий</div>
                 <div class="target-label">САМАЯ ЧАСТАЯ ЦЕЛЬ</div>
             </div>
             <div id="cupid-target-rare" class="target-card" style="display: none;">
-                <div class="target-emoji">👻</div>
+                <div class="target-emoji"></div>
                 <div class="target-name" id="cupid-target-rare-name"></div>
                 <div class="target-count" id="cupid-target-rare-count"></div>
                 <div class="gray-text">попаданий</div>
@@ -124,19 +124,19 @@
         <!-- МЕДАЛИ ФИНАЛОВ ТОП-3 -->
         <div class="medals-container">
             <div id="cupid-final-1" class="medal-card" style="display: none; background: rgba(220,20,60,0.1); border: 1px solid #dc143c;">
-                <span class="medal-emoji">🥇</span>
+                <span class="medal-emoji"></span>
                 <div class="medal-name" id="cupid-final-1-name"></div>
                 <div class="medal-score" id="cupid-final-1-score" style="color: #dc143c;"></div>
                 <div class="medal-stats">раз(а) пытались утянуть из пары</div>
             </div>
             <div id="cupid-final-2" class="medal-card" style="display: none; background: rgba(178,34,34,0.1); border: 1px solid #dc143c;">
-                <span class="medal-emoji">🥈</span>
+                <span class="medal-emoji"></span>
                 <div class="medal-name" id="cupid-final-2-name"></div>
                 <div class="medal-score" id="cupid-final-2-score" style="color: #dc143c;"></div>
                 <div class="medal-stats">раз(а) пытались утянуть из пары</div>
             </div>
             <div id="cupid-final-3" class="medal-card" style="display: none; background: rgba(139,0,0,0.1); border: 1px solid #dc143c;">
-                <span class="medal-emoji">🥉</span>
+                <span class="medal-emoji"></span>
                 <div class="medal-name" id="cupid-final-3-name"></div>
                 <div class="medal-score" id="cupid-final-3-score" style="color: #dc143c;"></div>
                 <div class="medal-stats">раз(а) пытались утянуть из пары</div>
@@ -483,21 +483,26 @@
 }
 
 
-/* === ВСЕ ЗАГОЛОВКИ СДЕЛАТЬ ЛИЛОВЫМИ === */
-
+/* === ВСЕ ЗАГОЛОВКИ ЛИЛОВЫЕ === */
 .cupid-card h2,
 .cupid-card h3,
 .cupid-table th{
   color:#e8aced !important;
 }
 
-/* НО "Рейтинг купидонов" ОСТАЁТСЯ ЗОЛОТЫМ */
-.cupid-card h2 .cupid-gold{
+/* === НО ЗОЛОТО ДОЛЖНО ПОБЕДИТЬ ВЕЗДЕ, ГДЕ ЕСТЬ .cupid-gold === */
+.cupid-card h2.cupid-gold,
+.cupid-card h2 .cupid-gold,
+.cupid-gold{
   color:#ffd700 !important;
 }
 
 
+
 </style>
+
+
+
 
 <script>
 (function() {
@@ -735,4 +740,3 @@
 
 [/html]
 [hideprofile]
-
