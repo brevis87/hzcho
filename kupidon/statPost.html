@@ -162,11 +162,34 @@
 
     <!-- ФУТЕР -->
     <div class="cupid-footer">
-        📊 Данные от: <span id="cupid-last-update">загрузка...</span>
+        Данные от: <span id="cupid-last-update">загрузка...</span>
     </div>
 </div>
 
+
+
+
+
+
 <style>
+
+
+
+/* === ГЛОБАЛЬНЫЙ ЦВЕТ ФОНА (МЕНЯЕШЬ ТОЛЬКО ТУТ) === */
+:root{
+--cupid-bg-main: #2b273a;
+--cupid-bg-soft: #312d44;
+--cupid-bg-row1: #35314a;
+--cupid-bg-row2: #2a263b;
+--cupid-bg-hover: #403c5c;
+--cupid-border: #4c4770;
+
+--cupid-text-main: #f2efff;
+--cupid-text-soft: #bdb6e6;
+}
+
+
+
 /* ============= ОСНОВНЫЕ СТИЛИ ============= */
 .cupid-card {
     background: #2a2a2a;
@@ -179,8 +202,8 @@
 
 .cupid-card h2 {
     margin-top: 0;
-    margin-bottom: 20px;
-    font-size: 24px;
+    margin-bottom: 0px;
+    font-size: 20px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -419,6 +442,62 @@
     margin-top: 10px;
     font-family: 'Courier New', Courier, monospace;
 }
+
+/* === ПЕРЕКРАСКА ВСЕГО === */
+
+.cupid-card{
+  background: var(--cupid-bg-main) !important;
+  box-shadow: 0 0 0 1px var(--cupid-border);
+  color: var(--cupid-text-main);
+}
+
+
+.cupid-table tr:nth-child(even){
+  background: var(--cupid-bg-row1) !important;
+}
+
+.cupid-table tr:nth-child(odd){
+  background: var(--cupid-bg-row2) !important;
+}
+
+.cupid-table tr:hover{
+  background: var(--cupid-bg-hover) !important;
+}
+
+.cupid-footer{
+  border-top:1px solid var(--cupid-border) !important;
+  background: var(--cupid-bg-soft);
+}
+
+
+.medal-name,
+.target-name,
+.cupid-table td,
+.stats-row b{
+  color: var(--cupid-text-main) !important;
+}
+
+.medal-stats,
+.gray-text,
+.target-label{
+  color: var(--cupid-text-soft) !important;
+}
+
+
+/* === ВСЕ ЗАГОЛОВКИ СДЕЛАТЬ ЛИЛОВЫМИ === */
+
+.cupid-card h2,
+.cupid-card h3,
+.cupid-table th{
+  color:#e8aced !important;
+}
+
+/* НО "Рейтинг купидонов" ОСТАЁТСЯ ЗОЛОТЫМ */
+.cupid-card h2 .cupid-gold{
+  color:#ffd700 !important;
+}
+
+
 </style>
 
 <script>
@@ -665,3 +744,4 @@
 
 
 [/html]
+[hideprofile]
