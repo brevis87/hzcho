@@ -524,7 +524,6 @@
 /* РОМБИК - компактный */
 .mobile-arrows_kup {
     display: flex;
-    flex-direction: column;
     align-items: center;
     gap: 0;
     position: relative;
@@ -814,37 +813,65 @@ function updateContainerSize() {
     }
 }
 
-// ============= СТАТИСТИКА - ТОЛЬКО СОХРАНЕНИЕ =============
+// ============= СТАТИСТИКА - ТОЛЬКО В КОНЦЕ ИГРЫ =============
 
 const APP_ID = 16777213;
 const STORAGE_KEY = 'cupid_stats';
 const RULES_SEEN_KEY = 'cupid_rules_seen';
-let statsData = null;
 
-// Загрузить статистику (только для игры)
+// ТЕКУЩАЯ статистика этой игры (накапливается)
+let currentGameStats = {
+    targets: [],      // ID аватаров, в которых стреляли
+    pairs: [],        // Объекты { a1: id1, a2: id2 }
+    finalAvatar: null // ID финального аватара (если проиграли)
+};
+
+// Статистика с сервера (только для чтения)
+let serverStats = null;
+
+// Загрузить статистику с сервера с повторными попытками
+async function fetchFreshStats(retries = 3) {
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            const response = await $.get("/api.php", {
+                token: ForumAPITicket,
+                method: "storage.get",
+                app_id: APP_ID,
+                key: [STORAGE_KEY]
+            });
+            
+            if (response.response && response.response.storage.data[STORAGE_KEY]) {
+                return JSON.parse(response.response.storage.data[STORAGE_KEY]);
+            }
+        } catch (e) {
+            console.warn(`⚠️ Ошибка загрузки статистики (попытка ${attempt + 1}/${retries}):`, e);
+            
+            if (attempt === retries - 1) {
+                throw new Error('Не удалось загрузить статистику');
+            }
+            
+            await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+        }
+    }
+    
+    // Если нет данных, возвращаем пустой объект
+    return {
+        totalGames: 0,
+        totalScore: 0,
+        players: {},
+        pairs: {},
+        targets: {},
+        finals: {}
+    };
+}
+
+// Загрузить статистику при инициализации
 async function loadStats() {
     try {
-        const response = await $.get("/api.php", {
-            token: ForumAPITicket,
-            method: "storage.get",
-            app_id: APP_ID,
-            key: [STORAGE_KEY]
-        });
-        
-        if (response.response && response.response.storage.data[STORAGE_KEY]) {
-            statsData = JSON.parse(response.response.storage.data[STORAGE_KEY]);
-        } else {
-            statsData = {
-                totalGames: 0,
-                totalScore: 0,
-                players: {},
-                pairs: {},
-                targets: {},
-                finals: {}
-            };
-        }
+        serverStats = await fetchFreshStats();
     } catch (e) {
-        statsData = {
+        console.error('❌ Ошибка загрузки статистики:', e);
+        serverStats = {
             totalGames: 0,
             totalScore: 0,
             players: {},
@@ -853,162 +880,131 @@ async function loadStats() {
             finals: {}
         };
     }
-    return statsData;
+    return serverStats;
 }
 
-// Сохранить статистику
-async function saveStats() {
-    if (!statsData) return;
+// Сохранить статистику (прибавляем currentGameStats к serverStats)
+async function saveFinalStats(retries = 3) {
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            // 1. Получаем свежие данные с сервера
+            const freshStats = await fetchFreshStats(1);
+            
+            // 2. Прибавляем к ним текущую статистику
+            const playerId = UserID.toString();
+            
+            // Обновляем данные игрока
+            if (!freshStats.players[playerId]) {
+                freshStats.players[playerId] = {
+                    games: 0,
+                    totalScore: 0,
+                    bestScore: 0
+                };
+            }
+            freshStats.players[playerId].games++;
+            freshStats.players[playerId].totalScore += gameState.score;
+            freshStats.players[playerId].bestScore = Math.max(
+                freshStats.players[playerId].bestScore || 0,
+                gameState.score
+            );
+            
+            // Общие счётчики
+            freshStats.totalGames = (freshStats.totalGames || 0) + 1;
+            freshStats.totalScore = (freshStats.totalScore || 0) + gameState.score;
+            
+            // Добавляем попадания
+            if (!freshStats.targets) freshStats.targets = {};
+            for (const avatarId of currentGameStats.targets) {
+                const realId = avatars[avatarId].user.user_id.toString();
+                freshStats.targets[realId] = (freshStats.targets[realId] || 0) + 1;
+            }
+            
+            // Добавляем пары
+            if (!freshStats.pairs) freshStats.pairs = {};
+            for (const pair of currentGameStats.pairs) {
+                const id1 = avatars[pair.a1].user.user_id.toString();
+                const id2 = avatars[pair.a2].user.user_id.toString();
+                const pairKey = [id1, id2].sort((a, b) => parseInt(a) - parseInt(b)).join('-');
+                freshStats.pairs[pairKey] = (freshStats.pairs[pairKey] || 0) + 1;
+            }
+            
+            // Добавляем финального аватара
+            if (currentGameStats.finalAvatar !== null) {
+                if (!freshStats.finals) freshStats.finals = {};
+                const realId = avatars[currentGameStats.finalAvatar].user.user_id.toString();
+                freshStats.finals[realId] = (freshStats.finals[realId] || 0) + 1;
+            }
+            
+            // 3. Сохраняем
+            await $.post("/api.php", {
+                token: ForumAPITicket,
+                method: "storage.set",
+                app_id: APP_ID,
+                key: STORAGE_KEY,
+                value: JSON.stringify(freshStats)
+            });
+            
+            // 4. Обновляем локальный кэш
+            serverStats = freshStats;
+            
+            console.log('✅ Статистика игры сохранена');
+            return true;
+            
+        } catch (e) {
+            console.warn(`⚠️ Ошибка сохранения статистики (попытка ${attempt + 1}/${retries}):`, e);
+            
+            if (attempt < retries - 1) {
+                await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
+            }
+        }
+    }
     
+    console.error('❌ Не удалось сохранить статистику');
+    
+    // Бэкап
     try {
+        const backupKey = 'cupid_stats_backup_' + Date.now();
+        localStorage.setItem(backupKey, JSON.stringify({
+            timestamp: Date.now(),
+            playerId: UserID,
+            gameScore: gameState.score,
+            currentGameStats: currentGameStats
+        }));
+        alert('Не удалось сохранить статистику на сервер, но данные сохранены локально');
+    } catch (e) {}
+    
+    return false;
+}
+
+// Инициализация аватаров в статистике (один раз)
+async function initAvatarsInStats() {
+    try {
+        const freshStats = await fetchFreshStats();
+        
+        if (!freshStats.targets) freshStats.targets = {};
+        if (!freshStats.finals) freshStats.finals = {};
+        
+        for (let i = 0; i < avatars.length; i++) {
+            const realId = avatars[i].user.user_id.toString();
+            if (!freshStats.targets[realId]) {
+                freshStats.targets[realId] = 0;
+            }
+            if (!freshStats.finals[realId]) {
+                freshStats.finals[realId] = 0;
+            }
+        }
+        
         await $.post("/api.php", {
             token: ForumAPITicket,
             method: "storage.set",
             app_id: APP_ID,
             key: STORAGE_KEY,
-            value: JSON.stringify(statsData)
+            value: JSON.stringify(freshStats)
         });
+        
+        serverStats = freshStats;
     } catch (e) {
-        console.error('❌ Ошибка сохранения статистики:', e);
-    }
-}
-
-// ID текущего игрока
-function getCurrentPlayerId() {
-    if (typeof UserID !== 'undefined' && UserID) {
-        return UserID.toString();
-    }
-    return 'guest';
-}
-
-// Обновить статистику игрока
-function updatePlayerStats(playerId, currentScore) {
-    if (!statsData.players[playerId]) {
-        statsData.players[playerId] = {
-            games: 0,
-            totalScore: 0,
-            bestScore: 0
-        };
-    }
-    
-    statsData.players[playerId].games++;
-    statsData.players[playerId].totalScore += currentScore;
-    
-    if (currentScore > statsData.players[playerId].bestScore) {
-        statsData.players[playerId].bestScore = currentScore;
-    }
-}
-
-// Добавить пару
-function addPairToStats(avatar1Id, avatar2Id) {
-    const id1 = avatars[avatar1Id].user.user_id.toString();
-    const id2 = avatars[avatar2Id].user.user_id.toString();
-    const pairKey = [id1, id2].sort((a, b) => parseInt(a) - parseInt(b)).join('-');
-    
-    if (!statsData.pairs) statsData.pairs = {};
-    statsData.pairs[pairKey] = (statsData.pairs[pairKey] || 0) + 1;
-}
-
-// Добавить попадание
-function addTargetHit(avatarId) {
-    const realId = avatars[avatarId].user.user_id.toString();
-    
-    if (!statsData.targets) statsData.targets = {};
-    statsData.targets[realId] = (statsData.targets[realId] || 0) + 1;
-}
-
-// Добавить финального аватара (на ком завершили игру)
-function addFinalAvatar(avatarId) {
-    const realId = avatars[avatarId].user.user_id.toString();
-    
-    if (!statsData.finals) statsData.finals = {};
-    statsData.finals[realId] = (statsData.finals[realId] || 0) + 1;
-}
-
-// Инициализировать всех аватаров в статистике
-function initAllAvatarsInStats() {
-    if (!statsData.targets) statsData.targets = {};
-    if (!statsData.finals) statsData.finals = {};
-    
-    for (let i = 0; i < avatars.length; i++) {
-        const realId = avatars[i].user.user_id.toString();
-        if (!statsData.targets[realId]) {
-            statsData.targets[realId] = 0;
-        }
-        if (!statsData.finals[realId]) {
-            statsData.finals[realId] = 0;
-        }
-    }
-}
-
-// Увеличить счётчик игр и общее количество очков
-function incrementTotalGames(score) {
-    statsData.totalGames++;
-    statsData.totalScore += score;
-}
-
-// ============= ПРАВИЛА =============
-function showRules() {
-    rulesModal.fadeIn(200);
-}
-
-function hideRules() {
-    rulesModal.fadeOut(200);
-    localStorage.setItem(RULES_SEEN_KEY, 'true');
-}
-
-// ============= ЗАВЕРШЕНИЕ ИГРЫ ДОСРОЧНО =============
-async function forceEndGame() {
-    if (!gameState.isRunning) return;
-    
-    gameState.isRunning = false;
-    gameState.isShooting = false;
-    gameState.gameEndReason = 'manual';
-    
-    const playerId = getCurrentPlayerId();
-    
-    updatePlayerStats(playerId, gameState.score);
-    incrementTotalGames(gameState.score);
-    
-    await saveStats();
-    
-    overlayScore.text(gameState.score);
-    overlayPairs.text(gameState.pairs.length);
-    overlayTitle.text('Игра завершена');
-    overlayReason.text('Вы досрочно завершили игру');
-    
-    gameOverlay.fadeIn(200);
-}
-
-// ==============================================
-
-function createLoadingScreen() {
-    loadingScreen = $(`
-        <div id="loadingScreen">
-            <div style="font-size: 28px; margin-bottom: 24px; color: rgb(var(--primary400)); font-weight: bold;">
-                Загрузка аватаров...
-            </div>
-            <div style="width: 300px; height: 16px; background: rgba(var(--light100), 0.2); border-radius: 4px; overflow: hidden;">
-                <div id="loadingBar"></div>
-            </div>
-            <div id="loadingText" style="font-size: 14px; margin-top: 12px;">0%</div>
-        </div>
-    `);
-    $('body').append(loadingScreen);
-}
-
-function updateLoadingProgress() {
-    const percentage = totalAvatars > 0 ? Math.round((loadedAvatars / totalAvatars) * 100) : 0;
-    $('#loadingBar').css('width', percentage + '%');
-    $('#loadingText').text(`${percentage}% (${loadedAvatars} из ${totalAvatars})`);
-    
-    if (loadedAvatars >= totalAvatars && totalAvatars > 0) {
-        setTimeout(() => {
-            if (loadingScreen) {
-                loadingScreen.fadeOut(300, function() { $(this).remove(); });
-            }
-            startBtn.prop('disabled', false);
-        }, 300);
+        console.error('❌ Ошибка инициализации статистики:', e);
     }
 }
 
@@ -1368,12 +1364,13 @@ function shoot() {
     gameState.isShooting = true;
     const hit = gameState.currentTarget;
     
-    addTargetHit(hit.id);
+    // Сохраняем попадание во временное хранилище
+    currentGameStats.targets.push(hit.id);
     
     if (hit.isPaired) {
         gameState.gameEndReason = 'paired';
         gameState.gameEndedByAvatar = hit;
-        addFinalAvatar(hit.id);
+        currentGameStats.finalAvatar = hit.id;
         setTimeout(() => {
             gameState.isShooting = false;
             endGame();
@@ -1437,7 +1434,8 @@ function createPair() {
         avatar2: a2
     });
     
-    addPairToStats(a1.id, a2.id);
+    // Сохраняем пару во временное хранилище
+    currentGameStats.pairs.push({ a1: a1.id, a2: a2.id });
     
     const item = $(`
         <div class="pair-item_kup">
@@ -1467,12 +1465,19 @@ async function endGame() {
     gameState.isRunning = false;
     gameState.isShooting = false;
     
-    const playerId = getCurrentPlayerId();
+    // Сохраняем ВСЮ статистику одной операцией
+    const saved = await saveFinalStats();
     
-    updatePlayerStats(playerId, gameState.score);
-    incrementTotalGames(gameState.score);
+    if (!saved) {
+        console.warn('⚠️ Игра завершена, но статистика не сохранена');
+    }
     
-    await saveStats();
+    // Очищаем временные данные
+    currentGameStats = {
+        targets: [],
+        pairs: [],
+        finalAvatar: null
+    };
     
     overlayScore.text(gameState.score);
     overlayPairs.text(gameState.pairs.length);
@@ -1491,10 +1496,49 @@ async function endGame() {
     gameOverlay.fadeIn(200);
 }
 
-// ============= ПЕРЕЗАПУСК =============
+async function forceEndGame() {
+    if (!gameState.isRunning) return;
+    
+    gameState.isRunning = false;
+    gameState.isShooting = false;
+    gameState.gameEndReason = 'manual';
+    
+    // Сохраняем всё как в обычном endGame
+    const saved = await saveFinalStats();
+    
+    if (!saved) {
+        console.warn('⚠️ Игра завершена досрочно, но статистика не сохранена');
+    }
+    
+    currentGameStats = {
+        targets: [],
+        pairs: [],
+        finalAvatar: null
+    };
+    
+    overlayScore.text(gameState.score);
+    overlayPairs.text(gameState.pairs.length);
+    overlayTitle.text('Игра завершена');
+    overlayReason.text('Вы досрочно завершили игру');
+    
+    gameOverlay.fadeIn(200);
+}
+
 function restartGame() {
     gameOverlay.fadeOut(200);
-    startGame();
+    
+    // Очищаем временные данные
+    currentGameStats = {
+        targets: [],
+        pairs: [],
+        finalAvatar: null
+    };
+    
+    loadStats().then(() => {
+        startGame();
+    }).catch(() => {
+        startGame();
+    });
 }
 
 // ============= ЗАПУСК ИГРЫ =============
@@ -1520,6 +1564,13 @@ async function startGame() {
         gameEndedByAvatar: null
     };
     
+    // Очищаем временные данные
+    currentGameStats = {
+        targets: [],
+        pairs: [],
+        finalAvatar: null
+    };
+    
     for (let key in keysPressed) {
         keysPressed[key] = false;
     }
@@ -1540,7 +1591,9 @@ async function startGame() {
     await createAvatars();
     await waitForAvatarsToLoad();
     
-    initAllAvatarsInStats();
+    // Инициализируем аватаров в статистике (один раз)
+    await initAvatarsInStats();
+    
     updateContainerSize();
     
     crosshairPos.x = containerWidth / 2;
@@ -1555,6 +1608,36 @@ async function startGame() {
     startBtn.text("Перезапуск").prop('disabled', false);
     
     animationFrameId = requestAnimationFrame(gameLoop);
+}
+
+function createLoadingScreen() {
+    loadingScreen = $(`
+        <div id="loadingScreen">
+            <div style="font-size: 28px; margin-bottom: 24px; color: rgb(var(--primary400)); font-weight: bold;">
+                Загрузка аватаров...
+            </div>
+            <div style="width: 300px; height: 16px; background: rgba(var(--light100), 0.2); border-radius: 4px; overflow: hidden;">
+                <div id="loadingBar"></div>
+            </div>
+            <div id="loadingText" style="font-size: 14px; margin-top: 12px;">0%</div>
+        </div>
+    `);
+    $('body').append(loadingScreen);
+}
+
+function updateLoadingProgress() {
+    const percentage = totalAvatars > 0 ? Math.round((loadedAvatars / totalAvatars) * 100) : 0;
+    $('#loadingBar').css('width', percentage + '%');
+    $('#loadingText').text(`${percentage}% (${loadedAvatars} из ${totalAvatars})`);
+    
+    if (loadedAvatars >= totalAvatars && totalAvatars > 0) {
+        setTimeout(() => {
+            if (loadingScreen) {
+                loadingScreen.fadeOut(300, function() { $(this).remove(); });
+            }
+            startBtn.prop('disabled', false);
+        }, 300);
+    }
 }
 
 // ============= УПРАВЛЕНИЕ С ТЕЛЕФОНА =============
@@ -1597,23 +1680,29 @@ $("#shootBtn").on('touchstart click', function(e) {
     }
 });
 
+// ============= ПРАВИЛА =============
+function showRules() {
+    rulesModal.fadeIn(200);
+}
+
+function hideRules() {
+    rulesModal.fadeOut(200);
+    localStorage.setItem(RULES_SEEN_KEY, 'true');
+}
+
 // ============= ИНИЦИАЛИЗАЦИЯ =============
 async function init() {
     await loadStats();
     
     startBtn.text("Запустить игру").prop('disabled', false);
     
-    // Правила
     if (!localStorage.getItem(RULES_SEEN_KEY)) {
         showRules();
     }
     
     rulesBtn.on('click', showRules);
     closeRulesBtn.on('click', hideRules);
-    
-    // Завершение игры
     endGameBtn.on('click', forceEndGame);
-    
     restartGameBtn.on('click', restartGame);
     continueBtn.on('click', () => gameOverlay.fadeOut(200));
     
@@ -1623,5 +1712,4 @@ async function init() {
 }
 
 $(document).ready(init);
-
 </script>
