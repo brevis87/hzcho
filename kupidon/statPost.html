@@ -165,15 +165,7 @@
     </div>
 </div>
 
-
-
-
-
-
 <style>
-
-
-
 /* === ГЛОБАЛЬНЫЙ ЦВЕТ ФОНА (МЕНЯЕШЬ ТОЛЬКО ТУТ) === */
 :root{
 --cupid-bg-main: #2b273a;
@@ -186,8 +178,6 @@
 --cupid-text-main: #f2efff;
 --cupid-text-soft: #bdb6e6;
 }
-
-
 
 /* ============= ОСНОВНЫЕ СТИЛИ ============= */
 .cupid-card {
@@ -443,13 +433,11 @@
 }
 
 /* === ПЕРЕКРАСКА ВСЕГО === */
-
 .cupid-card{
   background: var(--cupid-bg-main) !important;
   box-shadow: 0 0 0 1px var(--cupid-border);
   color: var(--cupid-text-main);
 }
-
 
 .cupid-table tr:nth-child(even){
   background: var(--cupid-bg-row1) !important;
@@ -468,7 +456,6 @@
   background: var(--cupid-bg-soft);
 }
 
-
 .medal-name,
 .target-name,
 .cupid-table td,
@@ -481,7 +468,6 @@
 .target-label{
   color: var(--cupid-text-soft) !important;
 }
-
 
 /* === ВСЕ ЗАГОЛОВКИ ЛИЛОВЫЕ === */
 .cupid-card h2,
@@ -496,13 +482,7 @@
 .cupid-gold{
   color:#ffd700 !important;
 }
-
-
-
 </style>
-
-
-
 
 <script>
 (function() {
@@ -510,6 +490,9 @@
 
     // ============= КОНСТАНТЫ =============
     let currentData = null;
+    let updateInterval = null;
+    let isFirstLoad = true;
+    const UPDATE_INTERVAL_MS = 30000; // 30 секунд
 
     // ============= ЗАПРОС К РОДИТЕЛЮ =============
     function sendRequest() {
@@ -536,6 +519,49 @@
                 resolve(null);
             }, 5000);
         });
+    }
+
+    // ============= ЗАГРУЗКА ДАННЫХ С ПОВТОРОМ =============
+    async function loadDataWithRetry(maxRetries = 3) {
+        let lastError = null;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const data = await sendRequest();
+                if (data) {
+                    return data;
+                }
+                lastError = new Error('Получены пустые данные');
+            } catch (e) {
+                lastError = e;
+                console.warn(`Попытка ${attempt} из ${maxRetries} не удалась:`, e);
+            }
+            
+            // Если это не последняя попытка, ждем перед повтором
+            if (attempt < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Ждем 2 секунды
+            }
+        }
+        
+        throw lastError || new Error('Не удалось загрузить данные после нескольких попыток');
+    }
+
+    // ============= ОБНОВЛЕНИЕ ДАННЫХ =============
+    async function updateData() {
+        try {
+            const data = await loadDataWithRetry(isFirstLoad ? 3 : 1);
+            if (data) {
+                renderAll(data);
+                if (isFirstLoad) {
+                    isFirstLoad = false;
+                }
+            }
+        } catch (e) {
+            console.error('Ошибка обновления данных:', e);
+            if (isFirstLoad) {
+                document.getElementById('cupid-last-update').textContent = 'ошибка загрузки';
+            }
+        }
     }
 
     // ============= РЕНДЕР =============
@@ -722,17 +748,17 @@
 
     // ============= ИНИЦИАЛИЗАЦИЯ =============
     async function init() {
-        try {
-            const data = await sendRequest();
-            if (data) {
-                renderAll(data);
-            }
-        } catch (e) {
-            console.error(e);
-            document.getElementById('cupid-last-update').textContent = 'ошибка загрузки';
+        // Первая загрузка с повторами при ошибке
+        await updateData();
+        
+        // Запускаем регулярное обновление каждые 30 секунд
+        if (updateInterval) {
+            clearInterval(updateInterval);
         }
+        updateInterval = setInterval(updateData, UPDATE_INTERVAL_MS);
     }
 
+    // Запускаем инициализацию
     init();
 })();
 </script>
@@ -740,3 +766,4 @@
 
 [/html]
 [hideprofile]
+
