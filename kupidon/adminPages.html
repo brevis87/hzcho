@@ -524,6 +524,7 @@
 /* РОМБИК - компактный */
 .mobile-arrows_kup {
     display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 0;
     position: relative;
@@ -669,11 +670,11 @@
                 <div class="arrow-row-top_kup">
                     <button id="arrowUp" class="arrow-btn_kup">▲</button>
                 </div>
-                <div class="arrow-row-middle">
+                <div class="arrow-row-middle_kup">
                     <button id="arrowLeft" class="arrow-btn_kup">◀</button>
                     <button id="arrowRight" class="arrow-btn_kup">▶</button>
                 </div>
-                <div class="arrow-row-bottom">
+                <div class="arrow-row-bottom_kup">
                     <button id="arrowDown" class="arrow-btn_kup">▼</button>
                 </div>
             </div>
@@ -1713,3 +1714,4 @@ async function init() {
 
 $(document).ready(init);
 </script>
+
